@@ -18,9 +18,9 @@ static void do_hash(uint8_t *output, const uint8_t *input, size_t inplen, const 
 	unsigned int outlen;
 	mdctx = OSSL_FUNC(EVP_MD_CTX_new)();
 	OQS_EXIT_IF_NULLPTR(mdctx, "OpenSSL");
-	OSSL_FUNC(EVP_DigestInit_ex)(mdctx, md, NULL);
-	OSSL_FUNC(EVP_DigestUpdate)(mdctx, input, inplen);
-	OSSL_FUNC(EVP_DigestFinal_ex)(mdctx, output, &outlen);
+	OQS_OPENSSL_GUARD(OSSL_FUNC(EVP_DigestInit_ex)(mdctx, md, NULL));
+	OQS_OPENSSL_GUARD(OSSL_FUNC(EVP_DigestUpdate)(mdctx, input, inplen));
+	OQS_OPENSSL_GUARD(OSSL_FUNC(EVP_DigestFinal_ex)(mdctx, output, &outlen));
 	OSSL_FUNC(EVP_MD_CTX_free)(mdctx);
 }
 
@@ -56,6 +56,10 @@ static void SHA2_sha256_inc_init(OQS_SHA2_sha256_ctx *state) {
 	OQS_EXIT_IF_NULLPTR(mdctx, "OpenSSL");
 	OQS_OPENSSL_GUARD(OSSL_FUNC(EVP_DigestInit_ex)(mdctx, md, NULL));
 	state->ctx = mdctx;
+}
+
+static void SHA2_sha256_inc(OQS_SHA2_sha256_ctx *state, const uint8_t *in, size_t len) {
+	OQS_OPENSSL_GUARD(OSSL_FUNC(EVP_DigestUpdate)((EVP_MD_CTX *) state->ctx, in, len));
 }
 
 static void SHA2_sha256_inc_blocks(OQS_SHA2_sha256_ctx *state, const uint8_t *in, size_t inblocks) {
@@ -153,6 +157,7 @@ struct OQS_SHA2_callbacks sha2_default_callbacks = {
 	SHA2_sha256,
 	SHA2_sha256_inc_init,
 	SHA2_sha256_inc_ctx_clone,
+	SHA2_sha256_inc,
 	SHA2_sha256_inc_blocks,
 	SHA2_sha256_inc_finalize,
 	SHA2_sha256_inc_ctx_release,

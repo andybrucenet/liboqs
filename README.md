@@ -1,7 +1,9 @@
-[CircleCI](https://circleci.com/gh/open-quantum-safe/liboqs/tree/main): ![Build status image](https://circleci.com/gh/open-quantum-safe/liboqs/tree/main.svg?style=svg), [TravisCI](https://travis-ci.com/github/open-quantum-safe/liboqs): [![Build Status](https://travis-ci.com/open-quantum-safe/liboqs.svg?branch=main)](https://travis-ci.com/open-quantum-safe/liboqs)
-
-liboqsfoo
+liboqs
 ======================
+
+[![Main Branch Tests](https://github.com/open-quantum-safe/liboqs/actions/workflows/commit-to-main.yml/badge.svg)](https://github.com/open-quantum-safe/liboqs/actions/workflows/commit-to-main.yml)
+[![Weekly Tests](https://github.com/open-quantum-safe/liboqs/actions/workflows/weekly.yml/badge.svg)](https://github.com/open-quantum-safe/liboqs/actions/workflows/weekly.yml)
+![Travis Build Status](https://img.shields.io/travis/com/open-quantum-safe/liboqs?logo=travis&label=Travis%20CI&labelColor=%23343B42&color=%232EBB4E)
 
 liboqs is an open source C library for quantum-safe cryptographic algorithms.
 
@@ -42,11 +44,11 @@ Details on each supported algorithm can be found in the [docs/algorithms](https:
 
 The list below indicates all algorithms currently supported by liboqs, including experimental algorithms and already excluding algorithm variants pruned during the NIST competition, such as Kyber-90s or Dilithium-AES.
 
-The only algorithms in `liboqs` that implement NIST standards drafts are the [`ML-KEM`](https://csrc.nist.gov/pubs/fips/203/ipd) and [`ML-DSA`](https://csrc.nist.gov/pubs/fips/204/ipd) variants with their respective different bit strengths. `liboqs` will retain these algorithm names selected by NIST throughout the finishing stages of the standardization process, so users can rely on their presence going forward. If NIST changes the implementation details of these algorithms, `liboqs` will adjust the implementation so that users are protected from such potential changes. For users interested in explicitly selecting the current "proposed draft standard" code, the variants with the suffix "-ipd" are made available. At this stage, "ml-kem-ipd" and "ml-kem" as well as "ml-dsa-ipd" and "ml-dsa" are functionally equivalent, denoted by the "alias" moniker below.
+The only algorithms in `liboqs` that implement NIST standards are the [`ML-KEM`](https://csrc.nist.gov/pubs/fips/203/final) (final standard) and [`ML-DSA`](https://csrc.nist.gov/pubs/fips/204/final) (final standard) variants with their respective different bit strengths. `liboqs` will retain these algorithm names selected by NIST throughout the finishing stages of the standardization process, so users can rely on their presence going forward. If NIST changes the implementation details of these algorithms, `liboqs` will adjust the implementation so that users are protected from such potential changes.
 
 Falcon and SPHINCS+ have also been [selected for standardization](https://csrc.nist.gov/Projects/post-quantum-cryptography/selected-algorithms-2022), but the `liboqs` implementations of these algorithms are currently tracking Round 3 submissions and not NIST standards drafts.
 
-All names other than `ML-KEM` and `ML-DSA` are subject to change. `liboqs` makes available a [selection mechanism for algorithms on the NIST standards track, continued NIST competition, or purely experimental nature by way of the configuration variable OQS_ALGS_ENABLED](CONFIGURE.md#oqs_algs_enabled). By default `liboqs` is built supporting all, incl. experimental, PQ algorithms listed below.
+All names other than `ML-KEM` and `ML-DSA` are subject to change. `liboqs` makes available a [selection mechanism for algorithms on the NIST standards track, continued NIST competition, or purely experimental nature by way of the configuration variable OQS_ALGS_ENABLED](CONFIGURE.md#oQS_ALGS_ENABLED). By default `liboqs` is built supporting all, incl. experimental, PQ algorithms listed below.
 
 #### Key encapsulation mechanisms
 
@@ -56,19 +58,23 @@ All names other than `ML-KEM` and `ML-DSA` are subject to change. `liboqs` makes
 - **FrodoKEM**: FrodoKEM-640-AES, FrodoKEM-640-SHAKE, FrodoKEM-976-AES, FrodoKEM-976-SHAKE, FrodoKEM-1344-AES, FrodoKEM-1344-SHAKE
 - **HQC**: HQC-128, HQC-192, HQC-256
 - **Kyber**: Kyber512, Kyber768, Kyber1024
-- **ML-KEM**: ML-KEM-512-ipd (alias: ML-KEM-512), ML-KEM-768-ipd (alias: ML-KEM-768), ML-KEM-1024-ipd (alias: ML-KEM-1024)
+- **ML-KEM**: ML-KEM-512, ML-KEM-768, ML-KEM-1024
 - **NTRU-Prime**: sntrup761
 <!--- OQS_TEMPLATE_FRAGMENT_LIST_KEXS_END -->
 
 #### Signature schemes
 
 <!--- OQS_TEMPLATE_FRAGMENT_LIST_SIGS_START -->
+- **CROSS**: cross-rsdp-128-balanced, cross-rsdp-128-fast, cross-rsdp-128-small†, cross-rsdp-192-balanced, cross-rsdp-192-fast, cross-rsdp-192-small†, cross-rsdp-256-balanced†, cross-rsdp-256-fast, cross-rsdp-256-small†, cross-rsdpg-128-balanced, cross-rsdpg-128-fast, cross-rsdpg-128-small, cross-rsdpg-192-balanced, cross-rsdpg-192-fast, cross-rsdpg-192-small†, cross-rsdpg-256-balanced, cross-rsdpg-256-fast, cross-rsdpg-256-small†
 - **CRYSTALS-Dilithium**: Dilithium2, Dilithium3, Dilithium5
 - **Falcon**: Falcon-512, Falcon-1024, Falcon-padded-512, Falcon-padded-1024
-- **ML-DSA**: ML-DSA-44-ipd (alias: ML-DSA-44), ML-DSA-65-ipd (alias: ML-DSA-65), ML-DSA-87-ipd (alias: ML-DSA-87)
+- **MAYO**: MAYO-1, MAYO-2, MAYO-3, MAYO-5†
+- **ML-DSA**: ML-DSA-44, ML-DSA-65, ML-DSA-87
 - **SPHINCS+-SHA2**: SPHINCS+-SHA2-128f-simple, SPHINCS+-SHA2-128s-simple, SPHINCS+-SHA2-192f-simple, SPHINCS+-SHA2-192s-simple, SPHINCS+-SHA2-256f-simple, SPHINCS+-SHA2-256s-simple
 - **SPHINCS+-SHAKE**: SPHINCS+-SHAKE-128f-simple, SPHINCS+-SHAKE-128s-simple, SPHINCS+-SHAKE-192f-simple, SPHINCS+-SHAKE-192s-simple, SPHINCS+-SHAKE-256f-simple, SPHINCS+-SHAKE-256s-simple
 <!--- OQS_TEMPLATE_FRAGMENT_LIST_SIGS_END -->
+- **XMSS**: XMSS-SHA2_10_256, XMSS-SHA2_16_256, XMSS-SHA2_20_256, XMSS-SHAKE_10_256, XMSS-SHAKE_16_256, XMSS-SHAKE_20_256, XMSS-SHA2_10_512, XMSS-SHA2_16_512, XMSS-SHA2_20_512, XMSS-SHAKE_10_512, XMSS-SHAKE_16_512, XMSS-SHAKE_20_512, XMSS-SHA2_10_192, XMSS-SHA2_16_192, XMSS-SHA2_20_192, XMSS-SHAKE256_10_192, XMSS-SHAKE256_16_192, XMSS-SHAKE256_20_192, SHAKE256_10_256, SHAKE256_16_256, SHAKE256_20_256, XMSSMT-SHA2_20/2_256, XMSSMT-SHA2_20/4_256, XMSSMT-SHA2_40/2_256, XMSSMT-SHA2_40/4_256, XMSSMT-SHA2_40/8_256, XMSSMT-SHA2_60/3_256, XMSSMT-SHA2_60/6_256, XMSSMT-SHA2_60/12_256, XMSSMT-SHAKE_20/2_256, XMSSMT-SHAKE_20/4_256, XMSSMT-SHAKE_40/2_256, XMSSMT-SHAKE_40/4_256, XMSSMT-SHAKE_40/8_256, XMSSMT-SHAKE_60/3_256, XMSSMT-SHAKE_60/6_256, XMSSMT-SHAKE_60/12_256 
+- **LMS**: LMS_SHA256_H5_W1, LMS_SHA256_H5_W2, LMS_SHA256_H5_W4, LMS_SHA256_H5_W8, LMS_SHA256_H10_W1, LMS_SHA256_H10_W2, LMS_SHA256_H10_W4, LMS_SHA256_H10_W8, LMS_SHA256_H15_W1, LMS_SHA256_H15_W2, LMS_SHA256_H15_W4, LMS_SHA256_H15_W8, LMS_SHA256_H20_W1, LMS_SHA256_H20_W2, LMS_SHA256_H20_W4, LMS_SHA256_H20_W8, LMS_SHA256_H25_W1, LMS_SHA256_H25_W2, LMS_SHA256_H25_W4, LMS_SHA256_H25_W8, LMS_SHA256_H5_W8_H5_W8, LMS_SHA256_H10_W4_H5_W8, LMS_SHA256_H10_W8_H5_W8, LMS_SHA256_H10_W2_H10_W2, LMS_SHA256_H10_W4_H10_W4, LMS_SHA256_H10_W8_H10_W8, LMS_SHA256_H15_W8_H5_W8, LMS_SHA256_H15_W8_H10_W8, LMS_SHA256_H15_W8_H15_W8, LMS_SHA256_H20_W8_H5_W8, LMS_SHA256_H20_W8_H10_W8, LMS_SHA256_H20_W8_H15_W8, LMS_SHA256_H20_W8_H20_W8
 
 Note that for algorithms marked with a dagger (†), liboqs contains at least one implementation that uses a large amount of stack space; this may cause failures when run in threads or in constrained environments. For more information, consult the algorithm information sheets in the [docs/algorithms](https://github.com/open-quantum-safe/liboqs/tree/main/docs/algorithms) folder.
 
@@ -116,22 +122,26 @@ In order to optimize support effort,
 		cmake -GNinja ..
 		ninja
 
-Various `cmake` build options to customize the resultant artifacts are available and are [documented in CONFIGURE.md](CONFIGURE.md#options-for-configuring-liboqs-builds). All supported options are also listed in the `.CMake/alg-support.cmake` file, and can be viewed by running `cmake -LAH ..` in the `build` directory.
+Various `cmake` build options to customize the resultant artifacts are available and are [documented in CONFIGURE.md](CONFIGURE.md#options-for-configuring-liboqs-builds). All supported options are also listed in the `.CMake/alg-support.cmake` file, and can be viewed by running `cmake -LAH -N ..` in the `build` directory.
 
 The following instructions assume we are in `build`.
 
-3. By default the main build result is `lib/liboqs.a`, a static library. If you want to build a shared/dynamic library, append [`-DBUILD_SHARED_LIBS=ON`](CONFIGURE.md#build_shared_libs) to the `cmake -GNinja ..` command above and the result will be `lib/liboqs.so|dylib|dll`. The public headers are located in the `include` directory. There are also a variety of programs built under the `tests` directory:
+3. By default the main build result is `lib/liboqs.a`, a static library. If you want to build a shared/dynamic library, append [`-DBUILD_SHARED_LIBS=ON`](CONFIGURE.md#bUILD_SHARED_LIBS) to the `cmake -GNinja ..` command above and the result will be `lib/liboqs.so|dylib|dll`. The public headers are located in the `include` directory. There are also a variety of programs built under the `tests` directory:
 
 	- `test_kem`: Simple test harness for key encapsulation mechanisms
-	- `test_sig`: Simple test harness for key signature schemes
+	- `test_sig`: Simple test harness for signature schemes
+	- `test_sig_stfl`: Simple test harness for stateful signature schemes
 	- `test_kem_mem`: Simple test harness for checking memory consumption of key encapsulation mechanisms
-	- `test_sig_mem`: Simple test harness for checking memory consumption of key signature schemes
+	- `test_sig_mem`: Simple test harness for checking memory consumption of signature schemes
 	- `kat_kem`: Program that generates known answer test (KAT) values for key encapsulation mechanisms using the same procedure as the NIST submission requirements, for checking against submitted KAT values using `tests/test_kat.py`
 	- `kat_sig`: Program that generates known answer test (KAT) values for signature schemes using the same procedure as the NIST submission requirements, for checking against submitted KAT values using `tests/test_kat.py`
+	- `kat_sig_stfl`: Program for checking results against submitted KAT values using `tests/test_kat.py`
 	- `speed_kem`: Benchmarking program for key encapsulation mechanisms; see `./speed_kem --help` for usage instructions
 	- `speed_sig`: Benchmarking program for signature mechanisms; see `./speed_sig --help` for usage instructions
+	- `speed_sig_stfl`: Benchmarking program for stateful signature mechanisms; see `./speed_sig_stfl --help` for usage instructions
 	- `example_kem`: Minimal runnable example showing the usage of the KEM API
 	- `example_sig`: Minimal runnable example showing the usage of the signature API
+	- `example_sig_stfl`: Minimal runnable example showing the usage of the stateful signature API
 	- `test_aes`, `test_sha3`: Simple test harnesses for crypto sub-components
 	- `test_portability`: Simple test harnesses for checking cross-CPU code portability; requires presence of `qemu`; proper operation validated only on Ubuntu
 
@@ -188,10 +198,12 @@ liboqs includes some third party libraries or modules that are licensed differen
 - `src/kem/classic_mceliece/pqclean_*`: public domain
 - `src/kem/kyber/pqcrystals-*`: public domain (CC0) or Apache License v2.0
 - `src/kem/kyber/pqclean_*`: public domain (CC0), and public domain (CC0) or Apache License v2.0, and public domain (CC0) or MIT, and MIT
+- `src/kem/kyber/libjade_*` public domain (CC0) or Apache License v2.
 - `src/kem/ml_kem/pqcrystals-*`: public domain (CC0) or Apache License v2.0
 - `src/sig/dilithium/pqcrystals-*`: public domain (CC0) or Apache License v2.0
 - `src/sig/dilithium/pqclean_*`: public domain (CC0), and public domain (CC0) or Apache License v2.0, and public domain (CC0) or MIT, and MIT
 -  src/sig/falcon/pqclean_\*\_aarch64 : Apache License v2.0
+- `src/sig/mayo/*`: Apache License v2.0
 - `src/sig/ml_dsa/pqcrystals-*`: public domain (CC0) or Apache License v2.0
 - `src/sig/sphincs/pqclean_*`: CC0 (public domain)
 

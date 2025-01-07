@@ -168,12 +168,9 @@ static void SHA3_shake128_x4(uint8_t *out0, uint8_t *out1, uint8_t *out2, uint8_
 
 static void SHA3_shake128_x4_inc_init(OQS_SHA3_shake128_x4_inc_ctx *state) {
 	state->ctx = OQS_MEM_aligned_alloc(KECCAK_X4_CTX_ALIGNMENT, KECCAK_X4_CTX_BYTES);
-	if (state->ctx == NULL) {
-		exit(111);
-	}
+	OQS_EXIT_IF_NULLPTR(state->ctx, "SHA3x4");
 	keccak_x4_inc_reset((uint64_t *)state->ctx);
 }
-
 static void SHA3_shake128_x4_inc_absorb(OQS_SHA3_shake128_x4_inc_ctx *state, const uint8_t *in0, const uint8_t *in1, const uint8_t *in2, const uint8_t *in3, size_t inlen) {
 	keccak_x4_inc_absorb((uint64_t *)state->ctx, OQS_SHA3_SHAKE128_RATE, in0, in1, in2, in3, inlen);
 }
@@ -213,9 +210,7 @@ static void SHA3_shake256_x4(uint8_t *out0, uint8_t *out1, uint8_t *out2, uint8_
 
 static void SHA3_shake256_x4_inc_init(OQS_SHA3_shake256_x4_inc_ctx *state) {
 	state->ctx = OQS_MEM_aligned_alloc(KECCAK_X4_CTX_ALIGNMENT, KECCAK_X4_CTX_BYTES);
-	if (state->ctx == NULL) {
-		exit(111);
-	}
+	OQS_EXIT_IF_NULLPTR(state->ctx, "SHA3x4");
 	keccak_x4_inc_reset((uint64_t *)state->ctx);
 }
 

@@ -16,7 +16,11 @@ def test_alg_info_kem(kem_name):
     alg_info = yaml.safe_load(output)['KEMs'][kem_name]
     assert(not(alg_info['isnull']))
     # find and load the datasheet
-    datasheet_filename = helpers.run_subprocess(['grep', '-r', '-l', kem_name, 'docs/algorithms/kem']).splitlines()[0]
+    if platform.system() == 'Windows':
+        command = f"Select-String -Path 'docs/algorithms/kem/*' -Pattern '{kem_name}' -SimpleMatch -List | Select-Object -ExpandProperty Path"
+        datasheet_filename = helpers.run_subprocess(['powershell', '-Command', command]).splitlines()[0]
+    else:
+        datasheet_filename = helpers.run_subprocess(['grep', '-r', '-l', kem_name, 'docs/algorithms/kem']).splitlines()[0]
     datasheet_filename = datasheet_filename.replace('.md','.yml')
     with open(datasheet_filename, 'r', encoding='utf8') as datasheet_fh:
         datasheet = yaml.safe_load(datasheet_fh.read())
@@ -45,18 +49,27 @@ def test_alg_info_sig(sig_name):
     alg_info = yaml.safe_load(output)['SIGs'][sig_name]
     assert(not(alg_info['isnull']))
     # find and load the datasheet
-    datasheet_filename = helpers.run_subprocess(['grep', '-r', '-l', sig_name, 'docs/algorithms/sig']).splitlines()[0]
+    if platform.system() == 'Windows':
+        command = f"Select-String -Path 'docs/algorithms/sig/*' -Pattern '{sig_name}' -SimpleMatch -List | Select-Object -ExpandProperty Path"
+        datasheet_filename = helpers.run_subprocess(['powershell', '-Command', command]).splitlines()[0]
+    else:
+        datasheet_filename = helpers.run_subprocess(['grep', '-r', '-l', sig_name, 'docs/algorithms/sig']).splitlines()[0]
     datasheet_filename = datasheet_filename.replace('.md','.yml')
     with open(datasheet_filename, 'r', encoding='utf8') as datasheet_fh:
         datasheet = yaml.safe_load(datasheet_fh.read())
     # find the parameter set in the datasheet
+
     foundit = False
     for parameter_set in datasheet['parameter-sets']:
         if parameter_set['name'] == sig_name or ('alias' in parameter_set and parameter_set['alias'] == sig_name):
             foundit = True
+            # SUF-CMA implies EUF-CMA
+            claimed_security = [parameter_set['claimed-security']]
+            if parameter_set['claimed-security'] == 'SUF-CMA':
+                claimed_security.append("EUF-CMA")
             # check that the values match
             assert(alg_info['claimed-nist-level'] == parameter_set['claimed-nist-level'])
-            assert(alg_info['claimed-security'] == parameter_set['claimed-security'])
+            assert(alg_info['claimed-security'] in claimed_security)
             assert(alg_info['length-public-key'] == parameter_set['length-public-key'])
             assert(alg_info['length-secret-key'] == parameter_set['length-secret-key'])
             assert(alg_info['length-signature'] == parameter_set['length-signature'])

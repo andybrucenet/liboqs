@@ -8,12 +8,12 @@
 
 OQS_KEM *OQS_KEM_hqc_256_new(void) {
 
-	OQS_KEM *kem = malloc(sizeof(OQS_KEM));
+	OQS_KEM *kem = OQS_MEM_malloc(sizeof(OQS_KEM));
 	if (kem == NULL) {
 		return NULL;
 	}
 	kem->method_name = OQS_KEM_alg_hqc_256;
-	kem->alg_version = "hqc-submission_2023-04-30 via https://github.com/SWilson4/package-pqclean/tree/8db1b24b/hqc";
+	kem->alg_version = "hqc-submission_2023-04-30 via https://github.com/SWilson4/package-pqclean/tree/9b509aa7/hqc";
 
 	kem->claimed_nist_level = 5;
 	kem->ind_cca = true;

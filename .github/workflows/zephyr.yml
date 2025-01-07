@@ -1,6 +1,9 @@
 name: Zephyr tests
 
-on: [push, pull_request]
+permissions:
+  contents: read
+
+on: [workflow_call, workflow_dispatch]
 
 jobs:
 
@@ -14,7 +17,7 @@ jobs:
         matrix:
           config:
             - zephyr-ref: v3.4.0
-            - zephyr-ref: v3.5.0
+            - zephyr-ref: v3.7.0
 
     steps:
         - name: Init Zephyr workspace

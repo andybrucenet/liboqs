@@ -36,6 +36,7 @@ static OQS_STATUS sig_test_correctness(const char *method_name) {
 	uint8_t *secret_key = NULL;
 	uint8_t *message = NULL;
 	size_t message_len = 100;
+	uint8_t ctx[257] = { 0 };
 	uint8_t *signature = NULL;
 	size_t signature_len;
 	OQS_STATUS rc, ret = OQS_ERROR;
@@ -55,13 +56,13 @@ static OQS_STATUS sig_test_correctness(const char *method_name) {
 	printf("Sample computation for signature %s\n", sig->method_name);
 	printf("================================================================================\n");
 
-	public_key = malloc(sig->length_public_key + 2 * sizeof(magic_t));
-	secret_key = malloc(sig->length_secret_key + 2 * sizeof(magic_t));
-	message = malloc(message_len + 2 * sizeof(magic_t));
-	signature = malloc(sig->length_signature + 2 * sizeof(magic_t));
+	public_key = OQS_MEM_malloc(sig->length_public_key + 2 * sizeof(magic_t));
+	secret_key = OQS_MEM_malloc(sig->length_secret_key + 2 * sizeof(magic_t));
+	message = OQS_MEM_malloc(message_len + 2 * sizeof(magic_t));
+	signature = OQS_MEM_malloc(sig->length_signature + 2 * sizeof(magic_t));
 
 	if ((public_key == NULL) || (secret_key == NULL) || (message == NULL) || (signature == NULL)) {
-		fprintf(stderr, "ERROR: malloc failed\n");
+		fprintf(stderr, "ERROR: OQS_MEM_malloc failed\n");
 		goto err;
 	}
 
@@ -118,6 +119,76 @@ static OQS_STATUS sig_test_correctness(const char *method_name) {
 		goto err;
 	}
 
+	/* testing signing with context, if supported */
+	OQS_randombytes(ctx, 257);
+	if (sig->sig_with_ctx_support) {
+		for (size_t i = 0; i < 256; ++i) {
+			rc = OQS_SIG_sign_with_ctx_str(sig, signature, &signature_len, message, message_len, ctx, i, secret_key);
+			OQS_TEST_CT_DECLASSIFY(&rc, sizeof rc);
+			if (rc != OQS_SUCCESS) {
+				fprintf(stderr, "ERROR: OQS_SIG_sign_with_ctx_str failed\n");
+				goto err;
+			}
+
+			OQS_TEST_CT_DECLASSIFY(public_key, sig->length_public_key);
+			OQS_TEST_CT_DECLASSIFY(signature, signature_len);
+			rc = OQS_SIG_verify_with_ctx_str(sig, message, message_len, signature, signature_len, ctx, i, public_key);
+			OQS_TEST_CT_DECLASSIFY(&rc, sizeof rc);
+			if (rc != OQS_SUCCESS) {
+				fprintf(stderr, "ERROR: OQS_SIG_verify_with_ctx_str failed\n");
+				goto err;
+			}
+
+			/* modify the signature to invalidate it */
+			OQS_randombytes(signature, signature_len);
+			OQS_TEST_CT_DECLASSIFY(signature, signature_len);
+			rc = OQS_SIG_verify_with_ctx_str(sig, message, message_len, signature, signature_len, ctx, i, public_key);
+			OQS_TEST_CT_DECLASSIFY(&rc, sizeof rc);
+			if (rc != OQS_ERROR) {
+				fprintf(stderr, "ERROR: OQS_SIG_verify_with_ctx_str should have failed!\n");
+				goto err;
+			}
+		}
+
+		rc = OQS_SIG_sign_with_ctx_str(sig, signature, &signature_len, message, message_len, ctx, 256, secret_key);
+		OQS_TEST_CT_DECLASSIFY(&rc, sizeof rc);
+		if (rc != OQS_ERROR) {
+			fprintf(stderr, "ERROR: OQS_SIG_sign_with_ctx_str should only support up to 255 byte contexts\n");
+			goto err;
+		}
+	} else {
+		rc = OQS_SIG_sign_with_ctx_str(sig, signature, &signature_len, message, message_len, ctx, 1, secret_key);
+		if (rc != OQS_ERROR) {
+			fprintf(stderr, "ERROR: OQS_SIG_sign_with_ctx_str should fail without support for context strings\n");
+			goto err;
+		}
+	}
+
+	rc = OQS_SIG_sign_with_ctx_str(sig, signature, &signature_len, message, message_len, NULL, 0, secret_key);
+	OQS_TEST_CT_DECLASSIFY(&rc, sizeof rc);
+	if (rc != OQS_SUCCESS) {
+		fprintf(stderr, "ERROR: OQS_SIG_sign_with_ctx_str should always succeed when providing a NULL context string\n");
+		goto err;
+	}
+	OQS_TEST_CT_DECLASSIFY(public_key, sig->length_public_key);
+	OQS_TEST_CT_DECLASSIFY(signature, signature_len);
+	rc = OQS_SIG_verify_with_ctx_str(sig, message, message_len, signature, signature_len, NULL, 0, public_key);
+	OQS_TEST_CT_DECLASSIFY(&rc, sizeof rc);
+	if (rc != OQS_SUCCESS) {
+		fprintf(stderr, "ERROR: OQS_SIG_verify_with_ctx_str failed\n");
+		goto err;
+	}
+
+	/* modify the signature to invalidate it */
+	OQS_randombytes(signature, signature_len);
+	OQS_TEST_CT_DECLASSIFY(signature, signature_len);
+	rc = OQS_SIG_verify_with_ctx_str(sig, message, message_len, signature, signature_len, NULL, 0, public_key);
+	OQS_TEST_CT_DECLASSIFY(&rc, sizeof rc);
+	if (rc != OQS_ERROR) {
+		fprintf(stderr, "ERROR: OQS_SIG_verify_with_ctx_str should have failed!\n");
+		goto err;
+	}
+
 #ifndef OQS_ENABLE_TEST_CONSTANT_TIME
 	/* check magic values */
 	int rv = memcmp(public_key + sig->length_public_key, magic.val, sizeof(magic_t));
@@ -129,7 +200,7 @@ static OQS_STATUS sig_test_correctness(const char *method_name) {
 	rv |= memcmp(message - sizeof(magic_t), magic.val, sizeof(magic_t));
 	rv |= memcmp(signature - sizeof(magic_t), magic.val, sizeof(magic_t));
 	if (rv) {
-		fprintf(stderr, "ERROR: Magic numbers do not mtach\n");
+		fprintf(stderr, "ERROR: Magic numbers do not match\n");
 		goto err;
 	}
 #endif
@@ -183,6 +254,7 @@ struct thread_data {
 void *test_wrapper(void *arg) {
 	struct thread_data *td = arg;
 	td->rc = sig_test_correctness(td->alg_name);
+	OQS_thread_stop();
 	return NULL;
 }
 #endif
@@ -224,17 +296,30 @@ int main(int argc, char **argv) {
 	OQS_STATUS rc;
 #if OQS_USE_PTHREADS
 #define MAX_LEN_SIG_NAME_ 64
-	pthread_t thread;
-	struct thread_data td;
-	td.alg_name = alg_name;
-	int trc = pthread_create(&thread, NULL, test_wrapper, &td);
-	if (trc) {
-		fprintf(stderr, "ERROR: Creating pthread\n");
-		OQS_destroy();
-		return EXIT_FAILURE;
+	// don't run algorithms with large stack usage in threads
+	char no_thread_sig_patterns[][MAX_LEN_SIG_NAME_]  = {"MAYO-5", "cross-rsdp-128-small", "cross-rsdp-192-small", "cross-rsdp-256-balanced", "cross-rsdp-256-small", "cross-rsdpg-192-small", "cross-rsdpg-256-small"};
+	int test_in_thread = 1;
+	for (size_t i = 0 ; i < sizeof(no_thread_sig_patterns) / MAX_LEN_SIG_NAME_; ++i) {
+		if (strstr(alg_name, no_thread_sig_patterns[i]) != NULL) {
+			test_in_thread = 0;
+			break;
+		}
 	}
-	pthread_join(thread, NULL);
-	rc = td.rc;
+	if (test_in_thread) {
+		pthread_t thread;
+		struct thread_data td;
+		td.alg_name = alg_name;
+		int trc = pthread_create(&thread, NULL, test_wrapper, &td);
+		if (trc) {
+			fprintf(stderr, "ERROR: Creating pthread\n");
+			OQS_destroy();
+			return EXIT_FAILURE;
+		}
+		pthread_join(thread, NULL);
+		rc = td.rc;
+	} else {
+		rc = sig_test_correctness(alg_name);
+	}
 #else
 	rc = sig_test_correctness(alg_name);
 #endif
