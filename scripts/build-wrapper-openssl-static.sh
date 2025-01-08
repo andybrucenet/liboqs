@@ -65,7 +65,7 @@ set +x
 [ x"$the_oqs_algs_enabled" = x ] && echo 'Missing the_oqs_algs_enabled' && exit 1
 
 # handle find command (breaks on windows if cygwin not in path)
-the_find_cmd="`which find | head -n 1 | xargs`"
+[ -x /bin/find ] && the_find_cmd='/bin/find' || the_find_cmd='find'
 echo "the_find_cmd=$the_find_cmd"
 exit 1
 
