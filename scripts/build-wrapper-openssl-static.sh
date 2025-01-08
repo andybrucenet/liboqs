@@ -326,9 +326,11 @@ function build_linux_variant {
   cd "$l_build_dir_path" || return $?
   #rm -fR ./*
 
+  # see https://askubuntu.com/a/1259084; we must manually include ZLIB
   set -x
   cmake \
     $the_cmake_build_trace_option \
+    -DZLIB_LIBRARY=/usr/lib64/libz.so \
     -DOQS_ALGS_ENABLED=$the_oqs_algs_enabled \
     -DOQS_USE_OPENSSL=ON \
     -DOQS_USE_SHA3_OPENSSL=ON \
@@ -640,7 +642,7 @@ function fix_cmake_provider {
   local l_path=''
   local l_dir=''
   local l_parent_dir=''
-	for i in `find . -type f \( -name liboqsTargets.cmake -o -name liboqsConfig.cmake \)` ; do
+  for i in `find . -type f \( -name liboqsTargets.cmake -o -name liboqsConfig.cmake \)` ; do
     l_path="`realpath "$i"`"
     l_dir="`dirname "$l_path"`"
     l_parent_dir="`dirname "$l_dir"`"
