@@ -64,6 +64,9 @@ set +x
 [ x"$the_android_api_level" = x ] && echo 'Missing the_android_api_level' && exit 1
 [ x"$the_oqs_algs_enabled" = x ] && echo 'Missing the_oqs_algs_enabled' && exit 1
 
+# handle find command (breaks on windows if cygwin not in path)
+the_find_cmd="`which find | head -n 1 | xargs`"
+
 # enable debug to get explicit compiler command lines
 the_cmake_build_verbose_flag="${the_cmake_build_verbose_flag:-0}"
 the_cmake_build_verbose_option=''
@@ -344,8 +347,8 @@ function build_linux_variant {
 
   # account for -lz which cannot be appended to link flags
   # without modifying FindOpenSSL.cmake or other source files.
-  find "$l_build_dir_path"/tests -type f -name link.txt -exec sed -ie 's/libcrypto.a/libcrypto.a -lz/' {} \;
-  find "$l_build_dir_path"/tests -type f -name link.txt -exec cat {} \;
+  $the_find_cmd "$l_build_dir_path"/tests -type f -name link.txt -exec sed -ie 's/libcrypto.a/libcrypto.a -lz/' {} \;
+  $the_find_cmd "$l_build_dir_path"/tests -type f -name link.txt -exec cat {} \;
 
   cmake --build . $the_cmake_build_verbose_option || return $?
   echo ''
@@ -610,9 +613,9 @@ function do_export {
   # report on what was exported
   echo ''
   echo "VERSION: $l_version"
-  find "$the_export_dir_path" -type d -name '*' -exec ls -lad {} \;
+  $the_find_cmd "$the_export_dir_path" -type d -name '*' -exec ls -lad {} \;
   if [ $wants_apple -eq 1 ] ; then
-    find "$the_export_dir_path"/apple/"$l_version" -type f -name '*.a' -exec lipo -info {} \;
+    $the_find_cmd "$the_export_dir_path"/apple/"$l_version" -type f -name '*.a' -exec lipo -info {} \;
   fi
   return 0
 }
@@ -642,7 +645,7 @@ function fix_cmake_provider {
   local l_path=''
   local l_dir=''
   local l_parent_dir=''
-  for i in `find . -type f \( -name liboqsTargets.cmake -o -name liboqsConfig.cmake \)` ; do
+  for i in `$the_find_cmd . -type f \( -name liboqsTargets.cmake -o -name liboqsConfig.cmake \)` ; do
     l_path="`realpath "$i"`"
     l_dir="`dirname "$l_path"`"
     l_parent_dir="`dirname "$l_dir"`"
