@@ -564,6 +564,7 @@ function create_export_folder {
 # create single-level export folder to gather everything
 function do_export {
   echo "EXPORT: Begin..."
+	set -x
 
   # locate back to script home
   cd "$the_top_dir" || return $?
