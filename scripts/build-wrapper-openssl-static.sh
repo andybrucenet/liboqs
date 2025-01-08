@@ -66,6 +66,8 @@ set +x
 
 # handle find command (breaks on windows if cygwin not in path)
 the_find_cmd="`which find | head -n 1 | xargs`"
+echo "the_find_cmd=$the_find_cmd"
+exit 1
 
 # enable debug to get explicit compiler command lines
 the_cmake_build_verbose_flag="${the_cmake_build_verbose_flag:-0}"
