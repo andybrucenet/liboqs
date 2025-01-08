@@ -67,7 +67,6 @@ set +x
 # handle find command (breaks on windows if cygwin not in path)
 [ -x /bin/find ] && the_find_cmd='/bin/find' || the_find_cmd='find'
 echo "the_find_cmd=$the_find_cmd"
-exit 1
 
 # enable debug to get explicit compiler command lines
 the_cmake_build_verbose_flag="${the_cmake_build_verbose_flag:-0}"
@@ -566,7 +565,7 @@ function create_export_folder {
 # create single-level export folder to gather everything
 function do_export {
   echo "EXPORT: Begin..."
-	set -x
+  #set -x
 
   # locate back to script home
   cd "$the_top_dir" || return $?
