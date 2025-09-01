@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0 AND MIT
 
-#if !defined(_WIN32) && !defined(OQS_HAVE_EXPLICIT_BZERO)
+#if !defined(OQS_USE_OPENSSL) && !defined(_WIN32) && !defined(OQS_HAVE_EXPLICIT_BZERO) && !defined(OQS_HAVE_EXPLICIT_MEMSET)
 // Request memset_s
 #define __STDC_WANT_LIB_EXT1__ 1
 #endif
@@ -11,7 +11,9 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <stddef.h>
 #include <string.h>
+#include <stddef.h>
 
 #if defined(OQS_DIST_BUILD) && defined(OQS_USE_PTHREADS)
 #include <pthread.h>
@@ -39,7 +41,7 @@ static pthread_once_t once_control = PTHREAD_ONCE_INIT;
 
 #if defined(OQS_DIST_X86_64_BUILD)
 /* set_available_cpu_extensions_x86_64() has been written using:
- * https://github.com/google/cpu_features/blob/master/src/cpuinfo_x86.c
+ * https://github.com/google/cpu_features/blob/339bfd32be1285877ff517cba8b82ce72e946afd/src/cpuinfo_x86.c
  */
 #include "x86_64_helpers.h"
 static void set_available_cpu_extensions(void) {
@@ -105,11 +107,11 @@ static unsigned int macos_feature_detection(const char *feature_name) {
 	}
 }
 static void set_available_cpu_extensions(void) {
-	/* mark that this function has been called */
 	cpu_ext_data[OQS_CPU_EXT_ARM_AES] = 1;
 	cpu_ext_data[OQS_CPU_EXT_ARM_SHA2] = 1;
 	cpu_ext_data[OQS_CPU_EXT_ARM_SHA3] = macos_feature_detection("hw.optional.armv8_2_sha3");
 	cpu_ext_data[OQS_CPU_EXT_ARM_NEON] = macos_feature_detection("hw.optional.neon");
+	/* mark that this function has been called */
 	cpu_ext_data[OQS_CPU_EXT_INIT] = 1;
 }
 #elif defined(__FreeBSD__) || defined(__FreeBSD)
@@ -204,6 +206,11 @@ static void set_available_cpu_extensions(void) {
 	/* mark that this function has been called */
 	cpu_ext_data[OQS_CPU_EXT_INIT] = 1;
 }
+#elif defined(OQS_DIST_LOONGARCH64_BUILD)
+static void set_available_cpu_extensions(void) {
+	/* mark that this function has been called */
+	cpu_ext_data[OQS_CPU_EXT_INIT] = 1;
+}
 #elif defined(OQS_DIST_BUILD)
 static void set_available_cpu_extensions(void) {
 }
@@ -233,6 +240,12 @@ OQS_API void OQS_init(void) {
 #endif
 }
 
+OQS_API void OQS_thread_stop(void) {
+#if defined(OQS_USE_OPENSSL)
+	oqs_thread_stop();
+#endif
+}
+
 OQS_API const char *OQS_version(void) {
 	return OQS_VERSION_TEXT;
 }
@@ -256,10 +269,17 @@ OQS_API int OQS_MEM_secure_bcmp(const void *a, const void *b, size_t len) {
 }
 
 OQS_API void OQS_MEM_cleanse(void *ptr, size_t len) {
-#if defined(_WIN32)
+	if (ptr == NULL) {
+		return;
+	}
+#if defined(OQS_USE_OPENSSL)
+	OSSL_FUNC(OPENSSL_cleanse)(ptr, len);
+#elif defined(_WIN32)
 	SecureZeroMemory(ptr, len);
 #elif defined(OQS_HAVE_EXPLICIT_BZERO)
 	explicit_bzero(ptr, len);
+#elif defined(OQS_HAVE_EXPLICIT_MEMSET)
+	explicit_memset(ptr, 0, len);
 #elif defined(__STDC_LIB_EXT1__) || defined(OQS_HAVE_MEMSET_S)
 	if (0U < len && memset_s(ptr, (rsize_t)len, 0, (rsize_t)len) != 0) {
 		abort();
@@ -274,16 +294,41 @@ OQS_API void OQS_MEM_cleanse(void *ptr, size_t len) {
 OQS_API void OQS_MEM_secure_free(void *ptr, size_t len) {
 	if (ptr != NULL) {
 		OQS_MEM_cleanse(ptr, len);
-		free(ptr); // IGNORE free-check
+		OQS_MEM_insecure_free(ptr);
 	}
 }
 
 OQS_API void OQS_MEM_insecure_free(void *ptr) {
-	free(ptr); // IGNORE free-check
+#if defined(OQS_USE_OPENSSL) && defined(OPENSSL_VERSION_NUMBER)
+	OSSL_FUNC(CRYPTO_free)(ptr, OPENSSL_FILE, OPENSSL_LINE);
+#else
+	free(ptr); // IGNORE memory-check
+#endif
 }
 
 void *OQS_MEM_aligned_alloc(size_t alignment, size_t size) {
-#if defined(OQS_HAVE_ALIGNED_ALLOC) // glibc and other implementations providing aligned_alloc
+#if defined(OQS_USE_OPENSSL)
+	// Use OpenSSL's memory allocation functions
+	if (!size) {
+		return NULL;
+	}
+	const size_t offset = alignment - 1 + sizeof(uint8_t);
+	uint8_t *buffer = OSSL_FUNC(CRYPTO_malloc)(size + offset, OPENSSL_FILE, OPENSSL_LINE);
+	if (!buffer) {
+		return NULL;
+	}
+	uint8_t *ptr = (uint8_t *)(((uintptr_t)(buffer) + offset) & ~(alignment - 1));
+	ptrdiff_t diff = ptr - buffer;
+	if (diff > UINT8_MAX) {
+		// Free and return NULL if alignment is too large
+		OSSL_FUNC(CRYPTO_free)(buffer, OPENSSL_FILE, OPENSSL_LINE);
+		errno = EINVAL;
+		return NULL;
+	}
+	// Store the difference so that the free function can use it
+	ptr[-1] = (uint8_t)diff;
+	return ptr;
+#elif defined(OQS_HAVE_ALIGNED_ALLOC) // glibc and other implementations providing aligned_alloc
 	return aligned_alloc(alignment, size);
 #else
 	// Check alignment (power of 2, and >= sizeof(void*)) and size (multiple of alignment)
@@ -322,7 +367,7 @@ void *OQS_MEM_aligned_alloc(size_t alignment, size_t size) {
 	//            |
 	//       diff = ptr - buffer
 	const size_t offset = alignment - 1 + sizeof(uint8_t);
-	uint8_t *buffer = malloc(size + offset);
+	uint8_t *buffer = malloc(size + offset); // IGNORE memory-check
 	if (!buffer) {
 		return NULL;
 	}
@@ -332,7 +377,7 @@ void *OQS_MEM_aligned_alloc(size_t alignment, size_t size) {
 	ptrdiff_t diff = ptr - buffer;
 	if (diff > UINT8_MAX) {
 		// This should never happen in our code, but just to be safe
-		free(buffer); // IGNORE free-check
+		free(buffer); // IGNORE memory-check
 		errno = EINVAL;
 		return NULL;
 	}
@@ -345,18 +390,53 @@ void *OQS_MEM_aligned_alloc(size_t alignment, size_t size) {
 }
 
 void OQS_MEM_aligned_free(void *ptr) {
-#if defined(OQS_HAVE_ALIGNED_ALLOC) || defined(OQS_HAVE_POSIX_MEMALIGN) || defined(OQS_HAVE_MEMALIGN)
-	free(ptr); // IGNORE free-check
+	if (ptr == NULL) {
+		return;
+	}
+#if defined(OQS_USE_OPENSSL)
+	// Use OpenSSL's free function
+	uint8_t *u8ptr = ptr;
+	OSSL_FUNC(CRYPTO_free)(u8ptr - u8ptr[-1], OPENSSL_FILE, OPENSSL_LINE);
+#elif defined(OQS_HAVE_ALIGNED_ALLOC) || defined(OQS_HAVE_POSIX_MEMALIGN) || defined(OQS_HAVE_MEMALIGN)
+	free(ptr); // IGNORE memory-check
 #elif defined(__MINGW32__) || defined(__MINGW64__)
 	__mingw_aligned_free(ptr);
 #elif defined(_MSC_VER)
 	_aligned_free(ptr);
 #else
-	if (ptr) {
-		// Reconstruct the pointer returned from malloc using the difference
-		// stored one byte ahead of ptr.
-		uint8_t *u8ptr = ptr;
-		free(u8ptr - u8ptr[-1]); // IGNORE free-check
-	}
+	// Reconstruct the pointer returned from malloc using the difference
+	// stored one byte ahead of ptr.
+	uint8_t *u8ptr = ptr;
+	free(u8ptr - u8ptr[-1]); // IGNORE memory-check
+#endif
+}
+
+void OQS_MEM_aligned_secure_free(void *ptr, size_t len) {
+	OQS_MEM_cleanse(ptr, len);
+	OQS_MEM_aligned_free(ptr);
+}
+
+OQS_API void *OQS_MEM_malloc(size_t size) {
+#if defined(OQS_USE_OPENSSL)
+	return OSSL_FUNC(CRYPTO_malloc)(size, OPENSSL_FILE, OPENSSL_LINE);
+#else
+	return malloc(size); // IGNORE memory-check
+#endif
+}
+
+OQS_API void *OQS_MEM_calloc(size_t num_elements, size_t element_size) {
+#if defined(OQS_USE_OPENSSL)
+	return OSSL_FUNC(CRYPTO_zalloc)(num_elements * element_size,
+	                                OPENSSL_FILE, OPENSSL_LINE);
+#else
+	return calloc(num_elements, element_size); // IGNORE memory-check
+#endif
+}
+
+OQS_API char *OQS_MEM_strdup(const char *str) {
+#if defined(OQS_USE_OPENSSL)
+	return OSSL_FUNC(CRYPTO_strdup)(str, OPENSSL_FILE, OPENSSL_LINE);
+#else
+	return strdup(str); // IGNORE memory-check
 #endif
 }

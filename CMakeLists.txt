@@ -23,9 +23,17 @@ project(liboqs C ASM)
 option(OQS_DIST_BUILD "Build distributable library with optimized code for several CPU microarchitectures. Enables run-time CPU feature detection." ON)
 option(OQS_BUILD_ONLY_LIB "Build only liboqs and do not expose build targets for tests, documentation, and pretty-printing available." OFF)
 set(OQS_MINIMAL_BUILD "" CACHE STRING "Only build specifically listed algorithms.")
+option(OQS_LIBJADE_BUILD "Enable formally verified implementation of supported algorithms from libjade." OFF)
 option(OQS_PERMIT_UNSUPPORTED_ARCHITECTURE "Permit compilation on an an unsupported architecture." OFF)
 option(OQS_STRICT_WARNINGS "Enable all compiler warnings." OFF)
 option(OQS_EMBEDDED_BUILD "Compile liboqs for an Embedded environment without a full standard library." OFF)
+option(OQS_USE_CUPQC "Utilize cuPQC as the backend for supported PQC algorithms." OFF)
+
+# Libfuzzer isn't supported on gcc
+if('${CMAKE_C_COMPILER_ID}' STREQUAL 'Clang')
+    option(OQS_BUILD_FUZZ_TESTS "Build fuzz test suite" OFF)
+endif()
+
 
 set(OQS_OPT_TARGET auto CACHE STRING "The target microarchitecture for optimization.")
 
@@ -33,10 +41,24 @@ set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 set(CMAKE_C_VISIBILITY_PRESET hidden)
-set(OQS_VERSION_TEXT "0.10.1-dev")
+set(OQS_VERSION_MAJOR 0)
+set(OQS_VERSION_MINOR 14)
+set(OQS_VERSION_PATCH 0)
+set(OQS_VERSION_PRE_RELEASE "")
+set(OQS_VERSION_TEXT "${OQS_VERSION_MAJOR}.${OQS_VERSION_MINOR}.${OQS_VERSION_PATCH}${OQS_VERSION_PRE_RELEASE}")
 set(OQS_COMPILE_BUILD_TARGET "${CMAKE_SYSTEM_PROCESSOR}-${CMAKE_HOST_SYSTEM}")
 set(OQS_MINIMAL_GCC_VERSION "7.1.0")
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
+# Determine the flags for fuzzing. Use OSS-Fuzz's configuration if available, otherwise fall back to defaults.
+if(DEFINED ENV{LIB_FUZZING_ENGINE})
+    set(FUZZING_ENGINE $ENV{LIB_FUZZING_ENGINE})
+    set(FUZZING_COMPILE_FLAGS "")
+    set(FUZZING_LINK_FLAGS "${FUZZING_ENGINE}")
+else()
+    set(FUZZING_COMPILE_FLAGS "-fsanitize=fuzzer,address")
+    set(FUZZING_LINK_FLAGS "-fsanitize=fuzzer,address")
+endif()
 
 # heuristic check to see whether we're running on a RaspberryPi
 if(EXISTS "/opt/vc/include/bcm_host.h")
@@ -80,6 +102,24 @@ elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "(ppc64|powerpc64)")
     if(${OQS_DIST_BUILD})
         set(OQS_DIST_PPC64_BUILD ON)
     endif()
+elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "(ppc|powerpc)")
+    message(WARNING "There is currently no CI for: " ${CMAKE_SYSTEM_PROCESSOR})
+    # CMake uses uname to derive CMAKE_SYSTEM_PROCESSOR value, so on Darwin
+    # the value is identical for ppc and ppc64. To have the right build arch
+    # in 64-bit case, we use CMAKE_OSX_ARCHITECTURES.
+    if(APPLE AND CMAKE_OSX_ARCHITECTURES STREQUAL "ppc64")
+        set(ARCH "ppc64")
+        set(ARCH_PPC64 ON)
+        if(${OQS_DIST_BUILD})
+            set(OQS_DIST_PPC64_BUILD ON)
+        endif()
+    else()
+        set(ARCH "ppc")
+        set(ARCH_PPC ON)
+        if(${OQS_DIST_BUILD})
+            set(OQS_DIST_PPC_BUILD ON)
+        endif()
+    endif()
 elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "s390x")
     set(ARCH "s390x")
     set(ARCH_S390X ON)
@@ -88,11 +128,31 @@ elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "s390x")
     endif()
 elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "riscv")
     set(ARCH "riscv")
+elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "loongarch64")
+    set(ARCH "loongarch64")
+    set(ARCH_LOONGARCH64 ON)
+    if(${OQS_DIST_BUILD})
+        set(OQS_DIST_LOONGARCH64_BUILD ON)
+    endif()
 elseif(OQS_PERMIT_UNSUPPORTED_ARCHITECTURE)
     message(WARNING "Unknown or unsupported processor: " ${CMAKE_SYSTEM_PROCESSOR})
     message(WARNING "Compilation on an unsupported processor should only be used for testing, as it may result an insecure configuration, for example due to variable-time instructions leaking secret information.")
 else()
     message(FATAL_ERROR "Unknown or unsupported processor: " ${CMAKE_SYSTEM_PROCESSOR} ". Override by setting OQS_PERMIT_UNSUPPORTED_ARCHITECTURE=ON")
+endif()
+
+if(${OQS_USE_CUPQC})
+    # CMAKE's CUDA language requires CMAKE 3.18
+    cmake_minimum_required (VERSION 3.18)
+    enable_language(CUDA)
+    if(NOT DEFINED CMAKE_CUDA_ARCHITECTURES)
+      set(CMAKE_CUDA_ARCHITECTURES 80 90)
+    endif()
+    find_package(cuPQC 0.2.0 REQUIRED)
+endif()
+
+if (NOT ((CMAKE_SYSTEM_NAME MATCHES "Linux|Darwin") AND (ARCH_X86_64 STREQUAL "ON")) AND (OQS_LIBJADE_BUILD STREQUAL "ON"))
+    message(FATAL_ERROR "Building liboqs with libjade implementations from libjade is only supported on Linux and Darwin on x86_64.")
 endif()
 
 # intentionally don't switch to variables to avoid --warn-uninitialized report
@@ -128,8 +188,6 @@ if(${OQS_USE_OPENSSL})
             elseif(EXISTS "/opt/homebrew/opt/openssl@1.1")
                 set(OPENSSL_ROOT_DIR "/opt/homebrew/opt/openssl@1.1")
             endif()
-        elseif(${CMAKE_HOST_SYSTEM_NAME} STREQUAL "Linux")
-            set(OPENSSL_ROOT_DIR "/usr")
         endif()
     endif()
     find_package(OpenSSL 1.1.1 REQUIRED)
@@ -150,10 +208,15 @@ if(${OQS_USE_OPENSSL})
 endif()
 
 set(PUBLIC_HEADERS ${PROJECT_SOURCE_DIR}/src/oqs.h
+                   ${PROJECT_SOURCE_DIR}/src/common/aes/aes_ops.h
                    ${PROJECT_SOURCE_DIR}/src/common/common.h
                    ${PROJECT_SOURCE_DIR}/src/common/rand/rand.h
+                   ${PROJECT_SOURCE_DIR}/src/common/sha2/sha2_ops.h
+                   ${PROJECT_SOURCE_DIR}/src/common/sha3/sha3_ops.h
+                   ${PROJECT_SOURCE_DIR}/src/common/sha3/sha3x4_ops.h
                    ${PROJECT_SOURCE_DIR}/src/kem/kem.h
-                   ${PROJECT_SOURCE_DIR}/src/sig/sig.h)
+                   ${PROJECT_SOURCE_DIR}/src/sig/sig.h
+                   ${PROJECT_SOURCE_DIR}/src/sig_stfl/sig_stfl.h)
 
 set(INTERNAL_HEADERS ${PROJECT_SOURCE_DIR}/src/common/aes/aes.h
                      ${PROJECT_SOURCE_DIR}/src/common/rand/rand_nist.h
@@ -195,7 +258,25 @@ endif()
 if(OQS_ENABLE_SIG_SPHINCS)
     set(PUBLIC_HEADERS ${PUBLIC_HEADERS} ${PROJECT_SOURCE_DIR}/src/sig/sphincs/sig_sphincs.h)
 endif()
+if(OQS_ENABLE_SIG_MAYO)
+    set(PUBLIC_HEADERS ${PUBLIC_HEADERS} ${PROJECT_SOURCE_DIR}/src/sig/mayo/sig_mayo.h)
+endif()
+if(OQS_ENABLE_SIG_CROSS)
+    set(PUBLIC_HEADERS ${PUBLIC_HEADERS} ${PROJECT_SOURCE_DIR}/src/sig/cross/sig_cross.h)
+endif()
+if(OQS_ENABLE_SIG_UOV)
+    set(PUBLIC_HEADERS ${PUBLIC_HEADERS} ${PROJECT_SOURCE_DIR}/src/sig/uov/sig_uov.h)
+endif()
+if(OQS_ENABLE_SIG_SNOVA)
+    set(PUBLIC_HEADERS ${PUBLIC_HEADERS} ${PROJECT_SOURCE_DIR}/src/sig/snova/sig_snova.h)
+endif()
 ##### OQS_COPY_FROM_UPSTREAM_FRAGMENT_INCLUDE_HEADERS_END
+if(OQS_ENABLE_SIG_STFL_XMSS)
+    set(PUBLIC_HEADERS ${PUBLIC_HEADERS} ${PROJECT_SOURCE_DIR}/src/sig_stfl/xmss/sig_stfl_xmss.h)
+endif()
+if(OQS_ENABLE_SIG_STFL_LMS)
+    set(PUBLIC_HEADERS ${PUBLIC_HEADERS} ${PROJECT_SOURCE_DIR}/src/sig_stfl/lms/sig_stfl_lms.h)
+endif()
 execute_process(COMMAND ${CMAKE_COMMAND} -E make_directory ${PROJECT_BINARY_DIR}/include/oqs)
 execute_process(COMMAND ${CMAKE_COMMAND} -E copy ${PUBLIC_HEADERS} ${PROJECT_BINARY_DIR}/include/oqs)
 execute_process(COMMAND ${CMAKE_COMMAND} -E copy ${INTERNAL_HEADERS} ${PROJECT_BINARY_DIR}/include/oqs)

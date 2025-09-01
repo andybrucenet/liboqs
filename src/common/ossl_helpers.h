@@ -6,12 +6,15 @@
 extern "C" {
 #endif
 
+#include <openssl/crypto.h>
 #include <openssl/err.h>
 #include <openssl/evp.h>
 #include <openssl/rand.h>
 
 #if defined(OQS_USE_OPENSSL)
 void oqs_ossl_destroy(void);
+
+void oqs_thread_stop(void);
 
 const EVP_MD *oqs_sha256(void);
 
@@ -31,14 +34,15 @@ const EVP_MD *oqs_sha3_512(void);
 
 const EVP_CIPHER *oqs_aes_128_ecb(void);
 
+const EVP_CIPHER *oqs_aes_128_ctr(void);
+
 const EVP_CIPHER *oqs_aes_256_ecb(void);
 
 const EVP_CIPHER *oqs_aes_256_ctr(void);
 
 #ifdef OQS_DLOPEN_OPENSSL
 
-#define FUNC(ret, name, args, cargs)        \
-    ret _oqs_ossl_##name args;
+#define FUNC(ret, name, args, cargs) ret _oqs_ossl_##name args;
 #define VOID_FUNC FUNC
 #include "ossl_functions.h"
 #undef VOID_FUNC

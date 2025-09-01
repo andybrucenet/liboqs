@@ -48,14 +48,14 @@ static OQS_STATUS kem_speed_wrapper(const char *method_name, uint64_t duration, 
 		return OQS_SUCCESS;
 	}
 
-	public_key = malloc(kem->length_public_key);
-	secret_key = malloc(kem->length_secret_key);
-	ciphertext = malloc(kem->length_ciphertext);
-	shared_secret_e = malloc(kem->length_shared_secret);
-	shared_secret_d = malloc(kem->length_shared_secret);
+	public_key = OQS_MEM_malloc(kem->length_public_key);
+	secret_key = OQS_MEM_malloc(kem->length_secret_key);
+	ciphertext = OQS_MEM_malloc(kem->length_ciphertext);
+	shared_secret_e = OQS_MEM_malloc(kem->length_shared_secret);
+	shared_secret_d = OQS_MEM_malloc(kem->length_shared_secret);
 
 	if ((public_key == NULL) || (secret_key == NULL) || (ciphertext == NULL) || (shared_secret_e == NULL) || (shared_secret_d == NULL)) {
-		fprintf(stderr, "ERROR: malloc failed\n");
+		fprintf(stderr, "ERROR: OQS_MEM_malloc failed\n");
 		goto err;
 	}
 
@@ -116,9 +116,16 @@ int main(int argc, char **argv) {
 
 	OQS_KEM *single_kem = NULL;
 
-	OQS_randombytes_switch_algorithm(OQS_RAND_alg_openssl);
-
 	OQS_init();
+#ifdef OQS_USE_OPENSSL
+	rc = OQS_randombytes_switch_algorithm(OQS_RAND_alg_openssl);
+	if (rc != OQS_SUCCESS) {
+		printf("Could not generate random data with OpenSSL RNG\n");
+		OQS_destroy();
+		return EXIT_FAILURE;
+	}
+#endif
+
 	for (int i = 1; i < argc; i++) {
 		if (strcmp(argv[i], "--algs") == 0) {
 			rc = printAlgs();

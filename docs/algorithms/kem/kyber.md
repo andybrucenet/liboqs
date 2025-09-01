@@ -7,21 +7,25 @@
 - **Authors' website**: https://pq-crystals.org/
 - **Specification version**: NIST Round 3 submission.
 - **Primary Source**<a name="primary-source"></a>:
-  - **Source**: https://github.com/pq-crystals/kyber/commit/b628ba78711bc28327dc7d2d5c074a00f061884e with copy_from_upstream patches
+  - **Source**: https://github.com/pq-crystals/kyber/commit/441c0519a07e8b86c8d079954a6b10bd31d29efc with copy_from_upstream patches
   - **Implementation license (SPDX-Identifier)**: CC0-1.0 or Apache-2.0
-- **Optimized Implementation sources**: https://github.com/pq-crystals/kyber/commit/b628ba78711bc28327dc7d2d5c074a00f061884e with copy_from_upstream patches
+- **Optimized Implementation sources**: https://github.com/pq-crystals/kyber/commit/441c0519a07e8b86c8d079954a6b10bd31d29efc with copy_from_upstream patches
   - **oldpqclean-aarch64**:<a name="oldpqclean-aarch64"></a>
       - **Source**: https://github.com/PQClean/PQClean/commit/8e220a87308154d48fdfac40abbb191ac7fce06a with copy_from_upstream patches
       - **Implementation license (SPDX-Identifier)**: CC0-1.0 and (CC0-1.0 or Apache-2.0) and (CC0-1.0 or MIT) and MIT
+- **Formally-verified Implementation sources**: 
+  - **libjade**:<a name="libjade"></a>
+      - **Source**: https://github.com/formosa-crypto/libjade/tree/release/2023.05-2 with copy_from_upstream patches
+      - **Implementation license (SPDX-Identifier)**: CC0-1.0 OR Apache-2.0
 
 
 ## Parameter set summary
 
-|  Parameter set  | Parameter set alias   | Security model   |   Claimed NIST Level |   Public key size (bytes) |   Secret key size (bytes) |   Ciphertext size (bytes) |   Shared secret size (bytes) |
-|:---------------:|:----------------------|:-----------------|---------------------:|--------------------------:|--------------------------:|--------------------------:|-----------------------------:|
-|    Kyber512     | NA                    | IND-CCA2         |                    1 |                       800 |                      1632 |                       768 |                           32 |
-|    Kyber768     | NA                    | IND-CCA2         |                    3 |                      1184 |                      2400 |                      1088 |                           32 |
-|    Kyber1024    | NA                    | IND-CCA2         |                    5 |                      1568 |                      3168 |                      1568 |                           32 |
+|  Parameter set  | Parameter set alias   | Security model   |   Claimed NIST Level |   Public key size (bytes) |   Secret key size (bytes) |   Ciphertext size (bytes) |   Shared secret size (bytes) | Keypair seed size (bytes)   |
+|:---------------:|:----------------------|:-----------------|---------------------:|--------------------------:|--------------------------:|--------------------------:|-----------------------------:|:----------------------------|
+|    Kyber512     | NA                    | IND-CCA2         |                    1 |                       800 |                      1632 |                       768 |                           32 | NA                          |
+|    Kyber768     | NA                    | IND-CCA2         |                    3 |                      1184 |                      2400 |                      1088 |                           32 | NA                          |
+|    Kyber1024    | NA                    | IND-CCA2         |                    5 |                      1568 |                      3168 |                      1568 |                           32 | NA                          |
 
 ## Kyber512 implementation characteristics
 
@@ -30,6 +34,8 @@
 |     [Primary Source](#primary-source)     | ref                      | All                         | All                             | None                    | True                               | True                                           | False                 |
 |     [Primary Source](#primary-source)     | avx2                     | x86\_64                     | Linux,Darwin                    | AVX2,BMI2,POPCNT        | True                               | True                                           | False                 |
 | [oldpqclean-aarch64](#oldpqclean-aarch64) | aarch64                  | ARM64\_V8                   | Linux,Darwin                    | None                    | True                               | False                                          | False                 |
+|            [libjade](#libjade)            | ref                      | x86\_64                     | Linux,Darwin                    | None                    | True                               | False                                          | False                 |
+|            [libjade](#libjade)            | avx2                     | x86\_64                     | Linux,Darwin                    | AVX2,BMI2,POPCNT        | True                               | False                                          | False                 |
 
 Are implementations chosen based on runtime CPU feature detection? **Yes**.
 
@@ -42,6 +48,8 @@ Are implementations chosen based on runtime CPU feature detection? **Yes**.
 |     [Primary Source](#primary-source)     | ref                      | All                         | All                             | None                    | True                               | True                                           | False                |
 |     [Primary Source](#primary-source)     | avx2                     | x86\_64                     | Linux,Darwin                    | AVX2,BMI2,POPCNT        | True                               | True                                           | False                |
 | [oldpqclean-aarch64](#oldpqclean-aarch64) | aarch64                  | ARM64\_V8                   | Linux,Darwin                    | None                    | True                               | False                                          | False                |
+|            [libjade](#libjade)            | ref                      | x86\_64                     | Linux,Darwin                    | None                    | True                               | False                                          | False                |
+|            [libjade](#libjade)            | avx2                     | x86\_64                     | Linux,Darwin                    | AVX2,BMI2,POPCNT        | True                               | False                                          | False                |
 
 Are implementations chosen based on runtime CPU feature detection? **Yes**.
 

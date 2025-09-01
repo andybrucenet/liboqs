@@ -1,65 +1,22 @@
-name: Weekly extended tests
+name: Weekly tests
+
+permissions:
+  contents: read
 
 on:
   schedule:
-  - cron: "5 0 * * 0"
+    - cron: "5 0 * * 0"
 
 jobs:
 
-  constant-time-x64:
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - name: generic
-            container: openquantumsafe/ci-ubuntu-focal-x86_64:latest
-            CMAKE_ARGS: -DOQS_DIST_BUILD=OFF -DOQS_OPT_TARGET=generic -DCMAKE_BUILD_TYPE=Debug -DOQS_ENABLE_TEST_CONSTANT_TIME=ON
-            PYTEST_ARGS: --numprocesses=auto -k 'test_constant_time'
-            SKIP_ALGS: 'SPHINCS\+-SHA(.)*s-simple,SPHINCS\+-SHAKE-(.)*,Classic-McEliece-[^3](.)*'
-          - name: extensions
-            container: openquantumsafe/ci-ubuntu-focal-x86_64:latest
-            CMAKE_ARGS: -DOQS_DIST_BUILD=OFF -DOQS_OPT_TARGET=haswell -DCMAKE_BUILD_TYPE=Debug -DOQS_ENABLE_TEST_CONSTANT_TIME=ON
-            PYTEST_ARGS: --numprocesses=auto -k 'test_constant_time'
-            SKIP_ALGS: 'SPHINCS\+-SHA(.)*s-simple,SPHINCS\+-SHAKE-(.)*,Classic-McEliece-[^3](.)*'
-    container:
-      image: ${{ matrix.container }}
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
-      - name: Configure
-        run: mkdir build && cd build && cmake -GNinja ${{ matrix.CMAKE_ARGS }} .. && cmake -LA ..
-      - name: Build
-        run: ninja
-        working-directory: build
-      - name: Run tests
-        timeout-minutes: 360
-        run: mkdir -p tmp && SKIP_ALGS='${{ matrix.SKIP_ALGS }}' python3 -m pytest --verbose ${{ matrix.PYTEST_ARGS }}
+  # To guarantee Maintained check is occasionally updated. See
+  # https://github.com/ossf/scorecard/blob/main/docs/checks.md#maintained
+  scorecard:
+    uses: ./.github/workflows/scorecard.yml
+    secrets: inherit
+    permissions:
+      id-token: write
+      security-events: write
 
-  nistkat-x64:
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - name: generic
-            container: openquantumsafe/ci-ubuntu-focal-x86_64:latest
-            CMAKE_ARGS: -DOQS_DIST_BUILD=OFF -DOQS_OPT_TARGET=generic
-            PYTEST_ARGS: --numprocesses=auto -k 'test_kat_all'
-          - name: extensions
-            container: openquantumsafe/ci-ubuntu-focal-x86_64:latest
-            CMAKE_ARGS: -DOQS_DIST_BUILD=OFF -DOQS_OPT_TARGET=haswell
-            PYTEST_ARGS: --numprocesses=auto -k 'test_kat_all'
-    container:
-      image: ${{ matrix.container }}
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
-      - name: Configure
-        run: mkdir build && cd build && cmake -GNinja ${{ matrix.CMAKE_ARGS }} .. && cmake -LA ..
-      - name: Build
-        run: ninja
-        working-directory: build
-      - name: Run tests
-        timeout-minutes: 360
-        run: mkdir -p tmp && SKIP_ALGS='${{ matrix.SKIP_ALGS }}' python3 -m pytest --verbose ${{ matrix.PYTEST_ARGS }}
+  extended-tests:
+    uses: ./.github/workflows/extended.yml

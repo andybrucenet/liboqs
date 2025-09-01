@@ -26,7 +26,7 @@ else()
    if (OQS_DIST_X86_64_BUILD OR OQS_USE_AES_INSTRUCTIONS)
       set(AES_IMPL ${AES_IMPL} aes/aes128_ni.c)
       set(AES_IMPL ${AES_IMPL} aes/aes256_ni.c)
-      set_source_files_properties(aes/aes128_ni.c PROPERTIES COMPILE_FLAGS -maes)
+      set_source_files_properties(aes/aes128_ni.c PROPERTIES COMPILE_FLAGS "-maes -mssse3")
       set_source_files_properties(aes/aes256_ni.c PROPERTIES COMPILE_FLAGS "-maes -mssse3")
    elseif (OQS_DIST_ARM64_V8_BUILD)
       set(AES_IMPL ${AES_IMPL} aes/aes128_armv8.c)
@@ -61,14 +61,25 @@ else()
 endif()
 
 if(${OQS_USE_SHA3_OPENSSL})
-  if (${OQS_ENABLE_SHA3_xkcp_low})
-    add_subdirectory(sha3/xkcp_low)
-  endif()
+    if (${OQS_ENABLE_SHA3_xkcp_low})
+        add_subdirectory(sha3/xkcp_low)
+    endif()
     set(SHA3_IMPL sha3/ossl_sha3.c sha3/ossl_sha3x4.c)
     set(OSSL_HELPERS ossl_helpers.c)
 else() # using XKCP
     add_subdirectory(sha3/xkcp_low)
     set(SHA3_IMPL sha3/xkcp_sha3.c sha3/xkcp_sha3x4.c)
+    if(OQS_USE_SHA3_AVX512VL)
+      # also build avx512vl modules
+      add_subdirectory(sha3/avx512vl_low)
+      list(APPEND SHA3_IMPL sha3/avx512vl_sha3.c sha3/avx512vl_sha3x4.c)
+    endif()
+endif()
+
+if ((OQS_LIBJADE_BUILD STREQUAL "ON"))
+    set(LIBJADE_RANDOMBYTES libjade_shims/libjade_randombytes.c)
+else()
+    set(LIBJADE_RANDOMBYTES "")
 endif()
 
 add_library(common OBJECT ${AES_IMPL} aes/aes.c
@@ -78,6 +89,7 @@ add_library(common OBJECT ${AES_IMPL} aes/aes.c
                           common.c
                           pqclean_shims/fips202.c
                           pqclean_shims/fips202x4.c
+                          ${LIBJADE_RANDOMBYTES}
                           rand/rand.c)
 
 # Implementations of the internal API to be exposed to test programs
@@ -93,8 +105,9 @@ if(${OQS_USE_OPENSSL})
     target_include_directories(common PRIVATE ${OPENSSL_INCLUDE_DIR})
     target_include_directories(internal PRIVATE ${OPENSSL_INCLUDE_DIR})
 else()
-    check_symbol_exists(getentropy "unistd.h;sys/random.h" CMAKE_HAVE_GETENTROPY)
-    if(${CMAKE_HAVE_GETENTROPY})
+    check_symbol_exists(getentropy "unistd.h" CMAKE_UNISTD_HAVE_GETENTROPY)
+    check_symbol_exists(getentropy "sys/random.h" CMAKE_SYS_RANDOM_HAVE_GETENTROPY)
+    if("${CMAKE_UNISTD_HAVE_GETENTROPY}" OR "${CMAKE_SYS_RANDOM_HAVE_GETENTROPY}")
         target_compile_definitions(common PRIVATE OQS_HAVE_GETENTROPY)
         target_compile_definitions(internal PRIVATE OQS_HAVE_GETENTROPY)
     endif()
@@ -124,13 +137,19 @@ if(CMAKE_HAVE_MEMALIGN)
     target_compile_definitions(internal PRIVATE OQS_HAVE_MEMALIGN)
 endif()
 
-# check if explicit_bzero exists or memset_s
+# check if explicit_bzero, or explicit_memset exists or memset_s
 check_symbol_exists(explicit_bzero string.h CMAKE_HAVE_EXPLICIT_BZERO)
+check_symbol_exists(explicit_memset string.h CMAKE_HAVE_EXPLICIT_MEMSET)
 check_symbol_exists(memset_s string.h CMAKE_HAVE_MEMSET_S)
 
 if(CMAKE_HAVE_EXPLICIT_BZERO)
     target_compile_definitions(common PRIVATE OQS_HAVE_EXPLICIT_BZERO)
     target_compile_definitions(internal PRIVATE OQS_HAVE_EXPLICIT_BZERO)
+endif()
+
+if(CMAKE_HAVE_EXPLICIT_MEMSET)
+    target_compile_definitions(common PRIVATE OQS_HAVE_EXPLICIT_MEMSET)
+    target_compile_definitions(internal PRIVATE OQS_HAVE_EXPLICIT_MEMSET)
 endif()
 
 if(CMAKE_HAVE_MEMSET_S)
@@ -141,6 +160,11 @@ endif()
 if(${OQS_ENABLE_SHA3_xkcp_low}) # using XKCP
     set(_COMMON_OBJS ${_COMMON_OBJS} ${XKCP_LOW_OBJS})
     set(_INTERNAL_OBJS ${_INTERNAL_OBJS} ${XKCP_LOW_OBJS})
+endif()
+
+if(${OQS_USE_SHA3_AVX512VL})
+    set(_COMMON_OBJS ${_COMMON_OBJS} ${SHA3_AVX512VL_LOW_OBJS})
+    set(_INTERNAL_OBJS ${_INTERNAL_OBJS} ${SHA3_AVX512VL_LOW_OBJS})
 endif()
 
 set(_COMMON_OBJS ${_COMMON_OBJS} $<TARGET_OBJECTS:common>)

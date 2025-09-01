@@ -40,12 +40,13 @@ static OQS_STATUS sig_test_correctness(const char *method_name, SIG_OPS op) {
 	case SIG_KEYGEN:
 		printf("================================================================================\n");
 		printf("Executing keygen for SIGALG %s\n", sig->method_name);
+		printf("Version source: %s\n", sig->alg_version);
 		printf("================================================================================\n");
 
-		public_key = malloc(sig->length_public_key);
-		secret_key = malloc(sig->length_secret_key);
+		public_key = OQS_MEM_malloc(sig->length_public_key);
+		secret_key = OQS_MEM_malloc(sig->length_secret_key);
 		if ((public_key == NULL) || (secret_key == NULL)) {
-			fprintf(stderr, "ERROR: malloc failed\n");
+			fprintf(stderr, "ERROR: OQS_MEM_malloc failed\n");
 			goto err;
 		}
 		rc = OQS_SIG_keypair(sig, public_key, secret_key);
@@ -65,15 +66,16 @@ static OQS_STATUS sig_test_correctness(const char *method_name, SIG_OPS op) {
 	case SIG_SIGN:
 		printf("================================================================================\n");
 		printf("Executing sign for SIGALG %s\n", sig->method_name);
+		printf("Version source: %s\n", sig->alg_version);
 		printf("================================================================================\n");
 
-		public_key = malloc(sig->length_public_key);
-		secret_key = malloc(sig->length_secret_key);
-		message = malloc(message_len);
-		signature = malloc(sig->length_signature);
+		public_key = OQS_MEM_malloc(sig->length_public_key);
+		secret_key = OQS_MEM_malloc(sig->length_secret_key);
+		message = OQS_MEM_malloc(message_len);
+		signature = OQS_MEM_malloc(sig->length_signature);
 
 		if ((public_key == NULL) || (secret_key == NULL) || (message == NULL) || (signature == NULL)) {
-			fprintf(stderr, "ERROR: malloc failed\n");
+			fprintf(stderr, "ERROR: OQS_MEM_malloc failed\n");
 			goto err;
 		}
 		if (oqs_fload("pk", method_name, public_key, sig->length_public_key, &signature_len) != OQS_SUCCESS) {
@@ -102,15 +104,16 @@ static OQS_STATUS sig_test_correctness(const char *method_name, SIG_OPS op) {
 	case SIG_VERIFY:
 		printf("================================================================================\n");
 		printf("Executing verify for SIGALG %s\n", sig->method_name);
+		printf("Version source: %s\n", sig->alg_version);
 		printf("================================================================================\n");
 
-		public_key = malloc(sig->length_public_key);
-		secret_key = malloc(sig->length_secret_key);
-		message = malloc(message_len);
-		signature = malloc(sig->length_signature);
+		public_key = OQS_MEM_malloc(sig->length_public_key);
+		secret_key = OQS_MEM_malloc(sig->length_secret_key);
+		message = OQS_MEM_malloc(message_len);
+		signature = OQS_MEM_malloc(sig->length_signature);
 
 		if ((public_key == NULL) || (secret_key == NULL) || (message == NULL) || (signature == NULL)) {
-			fprintf(stderr, "ERROR: malloc failed\n");
+			fprintf(stderr, "ERROR: OQS_MEM_malloc failed\n");
 			goto err;
 		}
 		if (oqs_fload("pk", method_name, public_key, sig->length_public_key, &signature_len) != OQS_SUCCESS) {
@@ -163,6 +166,7 @@ cleanup:
 }
 
 int main(int argc, char **argv) {
+	OQS_STATUS rc;
 	OQS_init();
 
 	if (argc != 3) {
@@ -189,11 +193,20 @@ int main(int argc, char **argv) {
 	}
 
 	// Use system RNG in this program
-	OQS_randombytes_switch_algorithm(OQS_RAND_alg_system);
+	rc = OQS_randombytes_switch_algorithm(OQS_RAND_alg_system);
+	if (rc != OQS_SUCCESS) {
+		printf("Could not generate random data with system RNG\n");
+		OQS_destroy();
+		return EXIT_FAILURE;
+	}
 
-	oqs_fstore_init();
+	rc = oqs_fstore_init();
+	if (rc != OQS_SUCCESS) {
+		OQS_destroy();
+		return EXIT_FAILURE;
+	}
 
-	OQS_STATUS rc = sig_test_correctness(alg_name, (unsigned int)atoi(argv[2]));
+	rc = sig_test_correctness(alg_name, (unsigned int)atoi(argv[2]));
 
 	if (rc != OQS_SUCCESS) {
 		OQS_destroy();

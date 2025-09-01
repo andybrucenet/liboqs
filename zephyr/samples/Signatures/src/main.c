@@ -132,7 +132,7 @@ err:
 	ret = OQS_ERROR;
 
 cleanup:
-	if (secret_key) {
+	if ((secret_key) && (sig != NULL)) {
 		OQS_MEM_secure_free(secret_key - sizeof(magic_t), sig->length_secret_key + 2 * sizeof(magic_t));
 	}
 	if (public_key) {
@@ -171,15 +171,14 @@ int main(void)
 		const char *alg_name = OQS_SIG_alg_identifier(i);
 		if (!OQS_SIG_alg_is_enabled(alg_name)) {
 			printf("Signature algorithm %s not enabled!\n", alg_name);
-			OQS_destroy();
-			return EXIT_FAILURE;
 		}
+		else {
+			rc = sig_test_correctness(alg_name);
 
-		rc = sig_test_correctness(alg_name);
-
-		if (rc != OQS_SUCCESS) {
-			OQS_destroy();
-			return EXIT_FAILURE;
+			if (rc != OQS_SUCCESS) {
+				OQS_destroy();
+				return EXIT_FAILURE;
+			}
 		}
 	}
 

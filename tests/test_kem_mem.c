@@ -9,15 +9,7 @@
 
 #include "system_info.c"
 #include "tmp_store.c"
-
-/* Displays hexadecimal strings */
-static void OQS_print_hex_string(const char *label, const uint8_t *str, size_t len) {
-	printf("%-20s (%4zu bytes):  ", label, len);
-	for (size_t i = 0; i < (len); i++) {
-		printf("%02X", str[i]);
-	}
-	printf("\n");
-}
+#include "test_helpers.h"
 
 typedef struct magic_s {
 	uint8_t val[32];
@@ -51,13 +43,14 @@ static OQS_STATUS kem_test_correctness(const char *method_name, KEM_OPS op) {
 	case KEM_KEYGEN:
 		printf("================================================================================\n");
 		printf("Executing keygen for KEM %s\n", kem->method_name);
+		printf("Version source: %s\n", kem->alg_version);
 		printf("================================================================================\n");
 
-		public_key = malloc(kem->length_public_key);
-		secret_key = malloc(kem->length_secret_key);
+		public_key = OQS_MEM_malloc(kem->length_public_key);
+		secret_key = OQS_MEM_malloc(kem->length_secret_key);
 
 		if ((public_key == NULL) || (secret_key == NULL)) {
-			fprintf(stderr, "ERROR: malloc failed\n");
+			fprintf(stderr, "ERROR: OQS_MEM_malloc failed\n");
 			goto err;
 		}
 
@@ -78,15 +71,16 @@ static OQS_STATUS kem_test_correctness(const char *method_name, KEM_OPS op) {
 	case KEM_ENCAPS:
 		printf("================================================================================\n");
 		printf("Executing encaps for KEM %s\n", kem->method_name);
+		printf("Version source: %s\n", kem->alg_version);
 		printf("================================================================================\n");
 
-		public_key = malloc(kem->length_public_key);
-		secret_key = malloc(kem->length_secret_key);
-		ciphertext = malloc(kem->length_ciphertext);
-		shared_secret_e = malloc(kem->length_shared_secret);
+		public_key = OQS_MEM_malloc(kem->length_public_key);
+		secret_key = OQS_MEM_malloc(kem->length_secret_key);
+		ciphertext = OQS_MEM_malloc(kem->length_ciphertext);
+		shared_secret_e = OQS_MEM_malloc(kem->length_shared_secret);
 
 		if ((public_key == NULL) || (secret_key == NULL) || (ciphertext == NULL) || (shared_secret_e == NULL)) {
-			fprintf(stderr, "ERROR: malloc failed\n");
+			fprintf(stderr, "ERROR: OQS_MEM_malloc failed\n");
 			goto err;
 		}
 
@@ -113,16 +107,17 @@ static OQS_STATUS kem_test_correctness(const char *method_name, KEM_OPS op) {
 	case KEM_DECAPS:
 		printf("================================================================================\n");
 		printf("Executing decaps for KEM %s\n", kem->method_name);
+		printf("Version source: %s\n", kem->alg_version);
 		printf("================================================================================\n");
 
-		public_key = malloc(kem->length_public_key);
-		secret_key = malloc(kem->length_secret_key);
-		ciphertext = malloc(kem->length_ciphertext);
-		shared_secret_e = malloc(kem->length_shared_secret);
-		shared_secret_d = malloc(kem->length_shared_secret);
+		public_key = OQS_MEM_malloc(kem->length_public_key);
+		secret_key = OQS_MEM_malloc(kem->length_secret_key);
+		ciphertext = OQS_MEM_malloc(kem->length_ciphertext);
+		shared_secret_e = OQS_MEM_malloc(kem->length_shared_secret);
+		shared_secret_d = OQS_MEM_malloc(kem->length_shared_secret);
 
 		if ((public_key == NULL) || (secret_key == NULL) || (ciphertext == NULL) || (shared_secret_e == NULL) || (shared_secret_d == NULL)) {
-			fprintf(stderr, "ERROR: malloc failed\n");
+			fprintf(stderr, "ERROR: OQS_MEM_malloc failed\n");
 			goto err;
 		}
 		if (oqs_fload("pk", method_name, public_key, kem->length_public_key, &retlen) != OQS_SUCCESS) {
@@ -183,6 +178,7 @@ cleanup:
 }
 
 int main(int argc, char **argv) {
+	OQS_STATUS rc;
 	OQS_init();
 
 	if (argc != 3) {
@@ -209,11 +205,20 @@ int main(int argc, char **argv) {
 	}
 
 	// Use system RNG in this program
-	OQS_randombytes_switch_algorithm(OQS_RAND_alg_system);
+	rc = OQS_randombytes_switch_algorithm(OQS_RAND_alg_system);
+	if (rc != OQS_SUCCESS) {
+		printf("Could not generate random data with system RNG\n");
+		OQS_destroy();
+		return EXIT_FAILURE;
+	}
 
-	oqs_fstore_init();
+	rc = oqs_fstore_init();
+	if (rc != OQS_SUCCESS) {
+		OQS_destroy();
+		return EXIT_FAILURE;
+	}
 
-	OQS_STATUS rc = kem_test_correctness(alg_name, (unsigned int)atoi(argv[2]));
+	rc = kem_test_correctness(alg_name, (unsigned int)atoi(argv[2]));
 
 	if (rc != OQS_SUCCESS) {
 		OQS_destroy();

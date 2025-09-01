@@ -216,10 +216,15 @@ static void print_oqs_configuration(void) {
 	 * OQS_OPT_TARGET: Visible by looking at compile options (-march or -mcpu):
 	 *                 'auto' -> "-march|cpu=native"
 	 * OQS_SPEED_USE_ARM_PMU: Output with Target platform
+	 * USE_COVERAGE: --coverage option present in compile options
 	 * USE_SANITIZER: -fsanitize= option present in compile options
 	 * OQS_ENABLE_TEST_CONSTANT_TIME: only shown below
 	 */
-	printf("OQS version:      %s\n", OQS_VERSION_TEXT);
+#if defined(OQS_VERSION_PRE_RELEASE)
+	printf("OQS version:      %s (major: %d, minor: %d, patch: %d, pre-release: %s)\n", OQS_VERSION_TEXT, OQS_VERSION_MAJOR, OQS_VERSION_MINOR, OQS_VERSION_PATCH, OQS_VERSION_PRE_RELEASE);
+#else
+	printf("OQS version:      %s (major: %d, minor: %d, patch: %d)\n", OQS_VERSION_TEXT, OQS_VERSION_MAJOR, OQS_VERSION_MINOR, OQS_VERSION_PATCH);
+#endif
 #if defined(OQS_COMPILE_GIT_COMMIT)
 	printf("Git commit:       %s\n", OQS_COMPILE_GIT_COMMIT);
 #endif
@@ -247,6 +252,14 @@ static void print_oqs_configuration(void) {
 #endif
 #if defined(OQS_USE_SHA3_OPENSSL)
 	printf("SHA-3:            OpenSSL\n");
+#elif defined(OQS_USE_SHA3_AVX512VL)
+	if (OQS_CPU_has_extension(OQS_CPU_EXT_AVX512)) {
+		printf("SHA-3:            AVX512VL\n");
+	} else if (OQS_CPU_has_extension(OQS_CPU_EXT_AVX2)) {
+		printf("SHA-3:            AVX2\n");
+	} else {
+		printf("SHA-3:            C\n");
+	}
 #else
 	printf("SHA-3:            C\n");
 #endif
@@ -263,8 +276,14 @@ static void print_oqs_configuration(void) {
 #ifdef OQS_DIST_BUILD
 	printf("OQS_DIST_BUILD ");
 #endif
+#ifdef OQS_LIBJADE_BUILD
+	printf("OQS_LIBJADE_BUILD ");
+#endif
 #ifdef OQS_BUILD_ONLY_LIB
 	printf("OQS_BUILD_ONLY_LIB "); // pretty much impossible to appear but added for completeness
+#endif
+#ifdef USE_COVERAGE
+	printf("USE_COVERAGE " );
 #endif
 #ifdef USE_SANITIZER
 	printf("USE_SANITIZER=%s ", USE_SANITIZER);

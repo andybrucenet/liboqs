@@ -5,6 +5,14 @@ the form of [a discussion](https://github.com/open-quantum-safe/liboqs/discussio
 for input or feedback, possible bug reports or feature requests via [issues](https://github.com/open-quantum-safe/liboqs/issues)
 as well as new code and documentation via a [pull request (PR)](https://github.com/open-quantum-safe/liboqs/pulls).
 
+## Baseline design goal
+
+OQS is a collection of many different PQC algorithms, maintained by a small team of people who are not guaranteed to be versed in the intricate details of each algorithm.
+
+Therefore, all contributions to the general logic of the project should be as independent of any single algorithm such as to ease long-term maintainability. If changes are contributed catering to the properties of a specific algorithm, it is expected that consideration is given at least how the other algorithms of the same type (KEM or SIG) should cater to the proposed changes, e.g., by way of a new, generally satisfiable API.
+
+All contributions to a specific algorithm ideally come with the willingness to provide long-term support, or at least a contact person that can help the OQS team pinpoint potential problems with the algorithm.
+
 ## Review and Feedback
 
 We aim to provide timely feedback to any input. If you are uncertain as to whether
@@ -26,38 +34,63 @@ them before the final "Review" stage.
 
 This project has adopted a slightly modified [Google code formatting style](https://astyle.sourceforge.net/astyle.html#_style=google) for the core components
 of the library as documented in the [style template](.astylerc).
+The `astyle` tool is used to check formatting in CI.
+Due to variations in behaviour across version and platforms, it is possible to encounter CI failures even if code has been locally formatted with `astyle`.
+To assist with this inconvenience, we provide a convenience script which runs `astyle` in the same Docker image that we use for the CI checks:
+```bash
+LIBOQS_DIR=<liboqs directory> ./scripts/format_code.sh
+```
+This script has been tested on x86\_64 Ubuntu and arm64 macOS. Contributions for other platforms are welcome and appreciated!
 
-To check adherence of any new code to this, it therefore is highly recommended to
-run the following command in the project main directory prior to finishing a PR:
+### Public and internal APIs
 
-    find src tests -name '*.[ch]' | grep -v '/external/' | grep -v 'kem/.*/.*/.*' | grep -v 'sig/.*/.*/.*' | xargs astyle --dry-run --options=.astylerc | grep Format
+Public API functions are marked with the `OQS_API` keyword. These functions are made available to users of the library.
+OQS also has an internal API for common code such as hashing and memory management.
+The OQS test programs use this internal API.
+These programs link against the `oqs-internal` library, which is built alongside the main library.
+The main library also contains the common code, but it does not expose it to external callers.
+The internal library is not installed via `ninja install`, and source code should not link against it.
 
-### Running CI locally
+### Continuous Integration (CI)
 
-#### CircleCI
+`liboqs` uses GitHub Actions for CI.
+For a comprehensive overview of our CI setup, see [CI.md](CI.md).
 
-If encountering CI errors in CircleCI, it may be helpful to execute the test jobs
-locally to debug. This can be facilitated by executing the command
+#### Running CI on your branch
 
-   circleci local execute --job some-test-job
+OQS attempts to be responsible with resource usage and only runs a minimal set of tests automatically on push.
+A more thorough test suite runs automatically on pull requests.
+To trigger these tests before creating a PR, include the string "[full tests]" in a commit message.
+Other trigger strings are documented in [CI.md](CI.md#push.yml).
 
-assuming "some-test-job" is the name of the test to be executed and the CircleCI
-[command line tools have been installed](https://circleci.com/docs/local-cli).
-
-#### Github CI
+#### Running CI locally
 
 [Act](https://github.com/nektos/act) is a tool facilitating local execution of
-github CI jobs. When executed in the main `oqsprovider` directory, 
+GitHub CI jobs. When executed in the main `liboqs` directory, 
 
-    act -l Displays all github CI jobs
+    act -l Displays all GitHub CI jobs
     act -j some-job Executes "some-job"
 
-When installing `act` as a github extension, prefix the commands with `gh `.
+When installing `act` as a GitHub extension, prefix the commands with `gh `.
+
+## Modifications to CI
+
+Modifications to GitHub Actions workflows are checked with [actionlint](https://github.com/rhysd/actionlint) during the [basic.yml](.github/workflows/basic.yml) job, protecting the CI chain and against wrong approval decisions based on improper CI runs.  Changes to these workflows can be validated locally with `actionlint`:
+
+```bash
+actionlint .github/workflows/*.yml
+```
+
+or running the CI locally (as above):
+
+```bash
+act workflow_call -W '.github/workflows/basic.yml'
+```
 
 ### New features
 
 Any PR introducing a new feature is expected to contain a test of this feature
-and this test should be part of the CI pipeline, preferably using Github CI.
+and this test should be part of the CI pipeline.
 
 ## Failsafe
 
@@ -68,6 +101,3 @@ add a tag to one or more of our [most active contributors](https://github.com/op
 
 If you feel like contributing but don't know what specific topic to work on,
 please check the [open issues tagged "good first issue" or "help wanted"](https://github.com/open-quantum-safe/liboqs/issues).
-
-
-

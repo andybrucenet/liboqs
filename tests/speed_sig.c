@@ -48,13 +48,13 @@ static OQS_STATUS sig_speed_wrapper(const char *method_name, uint64_t duration, 
 		return OQS_SUCCESS;
 	}
 
-	public_key = malloc(sig->length_public_key);
-	secret_key = malloc(sig->length_secret_key);
-	message = malloc(message_len);
-	signature = malloc(sig->length_signature);
+	public_key = OQS_MEM_malloc(sig->length_public_key);
+	secret_key = OQS_MEM_malloc(sig->length_secret_key);
+	message = OQS_MEM_malloc(message_len);
+	signature = OQS_MEM_malloc(sig->length_signature);
 
 	if ((public_key == NULL) || (secret_key == NULL) || (message == NULL) || (signature == NULL)) {
-		fprintf(stderr, "ERROR: malloc failed\n");
+		fprintf(stderr, "ERROR: OQS_MEM_malloc failed\n");
 		goto err;
 	}
 
@@ -121,7 +121,14 @@ int main(int argc, char **argv) {
 	OQS_SIG *single_sig = NULL;
 
 	OQS_init();
-	OQS_randombytes_switch_algorithm(OQS_RAND_alg_openssl);
+#ifdef OQS_USE_OPENSSL
+	rc = OQS_randombytes_switch_algorithm(OQS_RAND_alg_openssl);
+	if (rc != OQS_SUCCESS) {
+		printf("Could not generate random data with OpenSSL RNG\n");
+		OQS_destroy();
+		return EXIT_FAILURE;
+	}
+#endif
 
 	for (int i = 1; i < argc; i++) {
 		if (strcmp(argv[i], "--algs") == 0) {
