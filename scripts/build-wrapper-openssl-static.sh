@@ -55,6 +55,7 @@ the_ios_target="${the_ios_target}"
 the_macos_target="${the_macos_target}"
 the_android_api_level="${the_android_api_level}"
 the_oqs_algs_enabled="${the_oqs_algs_enabled}"
+the_oqs_asan_enabled="${the_oqs_asan_enabled:-1}"
 set +x
 
 [ x"$the_openssl_ver" = x ] && echo 'Missing the_openssl_ver' && exit 1
@@ -63,6 +64,7 @@ set +x
 [ x"$the_macos_target" = x ] && echo 'Missing the_macos_target' && exit 1
 [ x"$the_android_api_level" = x ] && echo 'Missing the_android_api_level' && exit 1
 [ x"$the_oqs_algs_enabled" = x ] && echo 'Missing the_oqs_algs_enabled' && exit 1
+[ x"$the_oqs_asan_enabled" = x ] && echo 'Missing the_oqs_asan_enabled' && exit 1
 
 # handle find command (breaks on windows if cygwin not in path)
 [ -x /bin/find ] && the_find_cmd='/bin/find' || the_find_cmd='find'
@@ -312,10 +314,11 @@ function build_android {
 function build_linux_variant {
   local i_arch="$1" ; shift
 
-  # locals
+  # locals (note fallback for l_libc_ver)
   local l_rc=0
   local l_type='linux'
-  local l_libc_ver="`ldd --version | grep libc | awk '{print $4}' | xargs`"
+	local l_libc_ver="$(getconf GNU_LIBC_VERSION 2>/dev/null | awk '{print $2}')"
+  [ -z "$l_libc_ver" ] && l_libc_ver="$(ldd --version 2>/dev/null | awk 'NR==1{print $NF}')"
   local l_openssl_plat_dir="$the_libs_dir/openssl-$the_openssl_ver-$l_type-$i_arch-glibc-$l_libc_ver"
 
   echo "BUILD: $l_type ($i_arch, libc $l_libc_ver)..."
@@ -327,28 +330,86 @@ function build_linux_variant {
   local l_build_dir_path="$the_build_dir_path"/$l_type/$i_arch
   mkdir -p "$l_build_dir_path"
   cd "$l_build_dir_path" || return $?
-  #rm -fR ./*
+  rm -fR ./*
 
-  # see https://askubuntu.com/a/1259084; we must manually include ZLIB
-  set -x
-  cmake \
-    $the_cmake_build_trace_option \
-    -DZLIB_LIBRARY=/usr/lib64/libz.so \
-    -DOQS_ALGS_ENABLED=$the_oqs_algs_enabled \
-    -DOQS_USE_OPENSSL=ON \
-    -DOQS_USE_SHA3_OPENSSL=ON \
-    -DOPENSSL_USE_STATIC_LIBS=ON \
-    -DOPENSSL_ROOT_DIR="$l_openssl_plat_dir" \
-    -DOPENSSL_INCLUDE_DIR="$l_openssl_plat_dir/include" \
-    -DOPENSSL_SSL_LIBRARY="$l_openssl_plat_dir/lib64/libssl.a" \
-    -DOPENSSL_CRYPTO_LIBRARY="$l_openssl_plat_dir/lib64/libcrypto.a" \
-    "$the_top_dir"
-  l_rc=$? ; set +x ; [ $l_rc -ne 0 ] && return $l_rc
+  if [ x"$the_oqs_asan_enabled" = x1 ] ; then
+    # options from OpenAI;
+    # to use ASAN:
+    # 1) relink app with -fsanitize=address,undefined
+    # 2) export vars:
+    #    export ASAN_OPTIONS="abort_on_error=1:detect_leaks=1:fast_unwind_on_malloc=0:symbolize=1:allocator_may_return_null=1"
+    #    export UBSAN_OPTIONS="halt_on_error=1:print_stacktrace=1"
+    set -x
+    cmake \
+      $the_cmake_build_trace_option \
+      -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+      -DBUILD_SHARED_LIBS=OFF \
+      -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
+      -DZLIB_LIBRARY=/usr/lib64/libz.so \
+      -DZLIB_INCLUDE_DIR=/usr/include \
+      -DOQS_ALGS_ENABLED="$the_oqs_algs_enabled" \
+      -DOQS_USE_OPENSSL=ON \
+      -DOQS_USE_SHA2_OPENSSL=OFF \
+      -DOQS_USE_SHA3_OPENSSL=OFF \
+      -DOPENSSL_USE_STATIC_LIBS=ON \
+      -DOPENSSL_ROOT_DIR="$l_openssl_plat_dir" \
+      -DOPENSSL_INCLUDE_DIR="$l_openssl_plat_dir/include" \
+      -DOPENSSL_SSL_LIBRARY="$l_openssl_plat_dir/lib64/libssl.a" \
+      -DOPENSSL_CRYPTO_LIBRARY="$l_openssl_plat_dir/lib64/libcrypto.a" \
+      -DOPENSSL_LIBRARIES="$l_openssl_plat_dir/lib64/libssl.a;$l_openssl_plat_dir/lib64/libcrypto.a;-lz;-ldl;-pthread" \
+      -DCMAKE_C_FLAGS="-O1 -g -fno-omit-frame-pointer -fsanitize=address,undefined -fno-sanitize-recover=all" \
+      -DCMAKE_CXX_FLAGS="-O1 -g -fno-omit-frame-pointer -fsanitize=address,undefined -fno-sanitize-recover=all" \
+      -DCMAKE_SHARED_LINKER_FLAGS="-fsanitize=address,undefined -Wl,--no-undefined" \
+      -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=address,undefined -Wl,--no-undefined" \
+      "$the_top_dir"
+    l_rc=$? ; set +x ; [ $l_rc -ne 0 ] && return $l_rc
+  elif /bin/true ; then
+    # options from OpenAI
+    set -x
+    cmake \
+      $the_cmake_build_trace_option \
+      -DCMAKE_BUILD_TYPE=Release \
+      -DBUILD_SHARED_LIBS=OFF \
+      -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
+      -DZLIB_LIBRARY=/usr/lib64/libz.so \
+      -DZLIB_INCLUDE_DIR=/usr/include \
+      -DOQS_ALGS_ENABLED="$the_oqs_algs_enabled" \
+      -DOQS_USE_OPENSSL=ON \
+      -DOQS_USE_SHA2_OPENSSL=ON \
+      -DOQS_USE_SHA3_OPENSSL=ON \
+      -DOPENSSL_USE_STATIC_LIBS=ON \
+      -DOPENSSL_ROOT_DIR="$l_openssl_plat_dir" \
+      -DOPENSSL_INCLUDE_DIR="$l_openssl_plat_dir/include" \
+      -DOPENSSL_SSL_LIBRARY="$l_openssl_plat_dir/lib64/libssl.a" \
+      -DOPENSSL_CRYPTO_LIBRARY="$l_openssl_plat_dir/lib64/libcrypto.a" \
+      -DOPENSSL_LIBRARIES="$l_openssl_plat_dir/lib64/libssl.a;$l_openssl_plat_dir/lib64/libcrypto.a;-lz;-ldl;-pthread" \
+      -DCMAKE_SHARED_LINKER_FLAGS="-Wl,--no-undefined" \
+      -DCMAKE_EXE_LINKER_FLAGS="-Wl,--no-undefined" \
+      "$the_top_dir"
+    l_rc=$? ; set +x ; [ $l_rc -ne 0 ] && return $l_rc
+  else
+    # This is the original build code - retained for historical analysis.
+    # see https://askubuntu.com/a/1259084; we must manually include ZLIB
+    set -x
+    cmake \
+      $the_cmake_build_trace_option \
+      -DZLIB_LIBRARY=/usr/lib64/libz.so \
+      -DOQS_ALGS_ENABLED=$the_oqs_algs_enabled \
+      -DOQS_USE_OPENSSL=ON \
+      -DOQS_USE_SHA3_OPENSSL=ON \
+      -DOPENSSL_USE_STATIC_LIBS=ON \
+      -DOPENSSL_ROOT_DIR="$l_openssl_plat_dir" \
+      -DOPENSSL_INCLUDE_DIR="$l_openssl_plat_dir/include" \
+      -DOPENSSL_SSL_LIBRARY="$l_openssl_plat_dir/lib64/libssl.a" \
+      -DOPENSSL_CRYPTO_LIBRARY="$l_openssl_plat_dir/lib64/libcrypto.a" \
+      "$the_top_dir"
+    l_rc=$? ; set +x ; [ $l_rc -ne 0 ] && return $l_rc
 
-  # account for -lz which cannot be appended to link flags
-  # without modifying FindOpenSSL.cmake or other source files.
-  $the_find_cmd "$l_build_dir_path"/tests -type f -name link.txt -exec sed -ie 's/libcrypto.a/libcrypto.a -lz/' {} \;
-  $the_find_cmd "$l_build_dir_path"/tests -type f -name link.txt -exec cat {} \;
+    # account for -lz which cannot be appended to link flags
+    # without modifying FindOpenSSL.cmake or other source files.
+    $the_find_cmd "$l_build_dir_path"/tests -type f -name link.txt -exec sed -ie 's/libcrypto.a/libcrypto.a -lz/' {} \;
+    $the_find_cmd "$l_build_dir_path"/tests -type f -name link.txt -exec cat {} \;
+  fi
 
   cmake --build . $the_cmake_build_verbose_option || return $?
   echo ''
