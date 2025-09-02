@@ -56,6 +56,7 @@ the_macos_target="${the_macos_target}"
 the_android_api_level="${the_android_api_level}"
 the_oqs_algs_enabled="${the_oqs_algs_enabled}"
 the_oqs_asan_enabled="${the_oqs_asan_enabled:-1}"
+export the_openssl_ver the_libs_dir the_ios_target the_macos_target the_android_api_level the_oqs_algs_enabled the_oqs_asan_enabled
 set +x
 
 [ x"$the_openssl_ver" = x ] && echo 'Missing the_openssl_ver' && exit 1
@@ -310,14 +311,14 @@ function build_android {
 }
 
 ##############################################################
-# LINUX build support
+# LINUX liboqs build support
 function build_linux_variant {
   local i_arch="$1" ; shift
 
   # locals (note fallback for l_libc_ver)
   local l_rc=0
   local l_type='linux'
-	local l_libc_ver="$(getconf GNU_LIBC_VERSION 2>/dev/null | awk '{print $2}')"
+  local l_libc_ver="$(getconf GNU_LIBC_VERSION 2>/dev/null | awk '{print $2}')"
   [ -z "$l_libc_ver" ] && l_libc_ver="$(ldd --version 2>/dev/null | awk 'NR==1{print $NF}')"
   local l_openssl_plat_dir="$the_libs_dir/openssl-$the_openssl_ver-$l_type-$i_arch-glibc-$l_libc_ver"
 
@@ -333,7 +334,7 @@ function build_linux_variant {
   rm -fR ./*
 
   if [ x"$the_oqs_asan_enabled" = x1 ] ; then
-    # options from OpenAI;
+    # ASAN Build (slower, extensive memory checks, options from OpenAI)
     # to use ASAN:
     # 1) relink app with -fsanitize=address,undefined
     # 2) export vars:
@@ -351,6 +352,10 @@ function build_linux_variant {
       -DOQS_USE_OPENSSL=ON \
       -DOQS_USE_SHA2_OPENSSL=OFF \
       -DOQS_USE_SHA3_OPENSSL=OFF \
+      -DOQS_USE_AES_OPENSSL=OFF \
+      -DOQS_BUILD_ONLY_LIB=OFF \
+      -DBUILD_TESTING=ON \
+      -DOQS_DIST_BUILD=ON \
       -DOPENSSL_USE_STATIC_LIBS=ON \
       -DOPENSSL_ROOT_DIR="$l_openssl_plat_dir" \
       -DOPENSSL_INCLUDE_DIR="$l_openssl_plat_dir/include" \
@@ -364,7 +369,7 @@ function build_linux_variant {
       "$the_top_dir"
     l_rc=$? ; set +x ; [ $l_rc -ne 0 ] && return $l_rc
   elif /bin/true ; then
-    # options from OpenAI
+    # Release Build (options from OpenAI)
     set -x
     cmake \
       $the_cmake_build_trace_option \
@@ -377,6 +382,10 @@ function build_linux_variant {
       -DOQS_USE_OPENSSL=ON \
       -DOQS_USE_SHA2_OPENSSL=ON \
       -DOQS_USE_SHA3_OPENSSL=ON \
+      -DOQS_USE_AES_OPENSSL=ON \
+      -DOQS_BUILD_ONLY_LIB=OFF \
+      -DOQS_DIST_BUILD=ON \
+      -DBUILD_TESTING=ON \
       -DOPENSSL_USE_STATIC_LIBS=ON \
       -DOPENSSL_ROOT_DIR="$l_openssl_plat_dir" \
       -DOPENSSL_INCLUDE_DIR="$l_openssl_plat_dir/include" \
@@ -412,6 +421,7 @@ function build_linux_variant {
   fi
 
   cmake --build . $the_cmake_build_verbose_option || return $?
+  ctest -j"$(nproc)" --output-on-failure
   echo ''
   return 0
 }
