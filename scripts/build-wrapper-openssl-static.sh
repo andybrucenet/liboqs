@@ -355,7 +355,7 @@ function build_linux_variant {
       -DOQS_USE_AES_OPENSSL=OFF \
       -DOQS_BUILD_ONLY_LIB=OFF \
       -DBUILD_TESTING=ON \
-      -DOQS_DIST_BUILD=ON \
+      -DOQS_DIST_BUILD=OFF \
       -DOPENSSL_USE_STATIC_LIBS=ON \
       -DOPENSSL_ROOT_DIR="$l_openssl_plat_dir" \
       -DOPENSSL_INCLUDE_DIR="$l_openssl_plat_dir/include" \
@@ -384,7 +384,7 @@ function build_linux_variant {
       -DOQS_USE_SHA3_OPENSSL=ON \
       -DOQS_USE_AES_OPENSSL=ON \
       -DOQS_BUILD_ONLY_LIB=OFF \
-      -DOQS_DIST_BUILD=ON \
+      -DOQS_DIST_BUILD=OFF \
       -DBUILD_TESTING=ON \
       -DOPENSSL_USE_STATIC_LIBS=ON \
       -DOPENSSL_ROOT_DIR="$l_openssl_plat_dir" \
@@ -420,7 +420,7 @@ function build_linux_variant {
     $the_find_cmd "$l_build_dir_path"/tests -type f -name link.txt -exec cat {} \;
   fi
 
-  cmake --build . $the_cmake_build_verbose_option || return $?
+  cmake --build . --parallel "$(nproc)" $the_cmake_build_verbose_option || return $?
   ctest -j"$(nproc)" --output-on-failure
   echo ''
   return 0
