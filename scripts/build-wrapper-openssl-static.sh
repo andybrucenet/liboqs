@@ -157,14 +157,22 @@ function build_apple_variant {
     -DCMAKE_TOOLCHAIN_FILE="$the_cmake_dir_path"/apple.cmake  \
     -DPLATFORM=$i_platform \
     -DDEPLOYMENT_TARGET=$l_deployment_target \
+    -DBUILD_SHARED_LIBS=OFF \
+    -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
     -DOQS_ALGS_ENABLED=$the_oqs_algs_enabled \
     -DOQS_USE_OPENSSL=ON \
+    -DOQS_USE_SHA2_OPENSSL=ON \
     -DOQS_USE_SHA3_OPENSSL=ON \
+    -DOQS_USE_AES_OPENSSL=ON \
+    -DOQS_BUILD_ONLY_LIB=OFF \
+    -DOQS_DIST_BUILD=OFF \
+    -DBUILD_TESTING=ON \
     -DOPENSSL_USE_STATIC_LIBS=ON \
     -DOPENSSL_ROOT_DIR="$l_openssl_plat_dir" \
+    -DOPENSSL_INCLUDE_DIR="$l_openssl_plat_dir/include" \
     -B . -S "$the_top_dir"
   l_rc=$? ; set +x ; [ $l_rc -ne 0 ] && return $l_rc
-  cmake --build . $the_cmake_build_verbose_option || return $?
+  cmake --build . --parallel "$(nproc)" $the_cmake_build_verbose_option || return $?
   echo ''
   return 0
 }
@@ -284,9 +292,16 @@ function build_android_variant {
     -DCMAKE_TOOLCHAIN_FILE="$ANDROID_NDK_HOME"/build/cmake/android.toolchain.cmake \
     -DANDROID_ABI=$i_arch \
     -DANDROID_PLATFORM=android-$the_android_api_level \
+    -DBUILD_SHARED_LIBS=OFF \
+    -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
     -DOQS_ALGS_ENABLED=$the_oqs_algs_enabled \
     -DOQS_USE_OPENSSL=ON \
+    -DOQS_USE_SHA2_OPENSSL=ON \
     -DOQS_USE_SHA3_OPENSSL=ON \
+    -DOQS_USE_AES_OPENSSL=ON \
+    -DOQS_BUILD_ONLY_LIB=OFF \
+    -DOQS_DIST_BUILD=OFF \
+    -DBUILD_TESTING=ON \
     -DOPENSSL_USE_STATIC_LIBS=ON \
     -DOPENSSL_ROOT_DIR="$l_openssl_plat_dir" \
     -DOPENSSL_INCLUDE_DIR="$l_openssl_plat_dir/include" \
@@ -294,7 +309,7 @@ function build_android_variant {
     -DOPENSSL_CRYPTO_LIBRARY="$l_openssl_plat_dir/lib/libcrypto.a" \
     "$the_top_dir"
   l_rc=$? ; set +x ; [ $l_rc -ne 0 ] && return $l_rc
-  cmake --build . $the_cmake_build_verbose_option || return $?
+  cmake --build . --parallel "$(nproc)" $the_cmake_build_verbose_option || return $?
   echo ''
   return 0
 }
@@ -481,10 +496,17 @@ function build_windows_variant {
   set -x
   cmake \
     $the_cmake_build_trace_option \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DBUILD_SHARED_LIBS=OFF \
+    -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
     -DOQS_ALGS_ENABLED=$the_oqs_algs_enabled \
     -DOQS_USE_OPENSSL=ON \
+    -DOQS_USE_SHA2_OPENSSL=ON \
     -DOQS_USE_SHA3_OPENSSL=ON \
-    -DOQS_BUILD_ONLY_LIB=ON \
+    -DOQS_USE_AES_OPENSSL=ON \
+    -DOQS_BUILD_ONLY_LIB=OFF \
+    -DOQS_DIST_BUILD=OFF \
+    -DBUILD_TESTING=ON \
     -DOPENSSL_USE_STATIC_LIBS=ON \
     -DOPENSSL_ROOT_DIR="$l_openssl_root_dir_windows" \
     -DOPENSSL_INCLUDE_DIR="$l_openssl_include_dir_windows" \
@@ -496,7 +518,7 @@ function build_windows_variant {
 
   echo 'BUILD...'
   set -x
-  $l_msbuild_name ALL_BUILD.vcxproj /property:Configuration=Release
+  $l_msbuild_name /m ALL_BUILD.vcxproj /property:Configuration=Release
   l_rc=$? ; set +x ; [ $l_rc -ne 0 ] && return $l_rc
   echo ''
 
