@@ -492,6 +492,7 @@ function build_windows_variant {
   local l_openssl_ssl_library_windows="`cygpath -am "$l_openssl_plat_dir/lib/libssl.lib" | xargs`"
   local l_openssl_crypto_library_windows="`cygpath -am "$l_openssl_plat_dir/lib/libcrypto.lib" | xargs`"
 
+  # note: no testing or binary build - just the libraries
   echo 'CONFIGURE...'
   set -x
   cmake \
@@ -504,9 +505,9 @@ function build_windows_variant {
     -DOQS_USE_SHA2_OPENSSL=ON \
     -DOQS_USE_SHA3_OPENSSL=ON \
     -DOQS_USE_AES_OPENSSL=ON \
-    -DOQS_BUILD_ONLY_LIB=OFF \
-    -DOQS_DIST_BUILD=OFF \
-    -DBUILD_TESTING=ON \
+    -DOQS_BUILD_ONLY_LIB=ON \
+    -DOQS_DIST_BUILD=ON \
+    -DBUILD_TESTING=OFF \
     -DOPENSSL_USE_STATIC_LIBS=ON \
     -DOPENSSL_ROOT_DIR="$l_openssl_root_dir_windows" \
     -DOPENSSL_INCLUDE_DIR="$l_openssl_include_dir_windows" \
